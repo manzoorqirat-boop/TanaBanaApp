@@ -98,7 +98,7 @@ export const NAV: NavEntry[] = [
     children: [
       { screen: 'RawMaterials', icon: Boxes, label: 'Raw materials', implemented: true },
       { screen: 'FinishedProducts', icon: Package, label: 'Finished products', implemented: true },
-      { screen: 'Bom', icon: ChefHat, label: 'BOM' },
+      { screen: 'Bom', icon: ChefHat, label: 'BOM', implemented: true },
       { screen: 'Machines', icon: Cog, label: 'Machines', implemented: true },
       { screen: 'Suppliers', icon: Truck, label: 'Suppliers', implemented: true },
       { screen: 'Units', icon: Ruler, label: 'Units', implemented: true },
