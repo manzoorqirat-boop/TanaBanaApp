@@ -1,13 +1,13 @@
-# QMfg Mobile — Phase 0 + Phase 1 + Phase 2a + Phase 2b (BOM)
+# QMfg Mobile — Phase 0 + Phase 1 + Phase 2a + Phase 2b (BOM, Production)
 
 React Native/Expo port of QMfg-Frontend. Delivered so far: **Phase 0**
 (auth, navigation shell, theme tokens, reusable primitives); **Phase
 1** — 10 simple CRUD/report pages (Units, Machines, Operators,
 Suppliers, Customers, Equipment Master, Overheads, Job Workers, Stock
 Alerts, Tenants); **Phase 2a** — Raw Materials, Finished Products,
-Reorder, Other Expenses; and, from **Phase 2b**, **BOM/BomEdit**.
-Production, Sales, Receipts, Payables, and Salaries are still open —
-see "Phase 2b — still not built" below.
+Reorder, Other Expenses; and, from **Phase 2b**, **BOM/BomEdit** and
+**Production**. Sales, Receipts, Payables, and Salaries are still
+open — see "Phase 2b — still not built" below.
 
 ## What's here
 
@@ -158,7 +158,7 @@ deactivate/delete button too).
 
 ## Phase 2b (in progress)
 
-**BOM / BomEdit — shipped this update.** Two new files:
+**BOM / BomEdit — shipped.** Two new files:
 
 - `screens/app/BomScreen.tsx` — ports `pages/Bom.tsx`: one row per
   finished product, "with active BOM" / "need BOM setup" summary
@@ -188,30 +188,59 @@ otherwise managed by `createBom`'s `activate_now` flag), so this
 matches parity. Add a manual activate/archive action later only if a
 real need for it shows up.
 
+**Production — shipped.** One new file:
+
+- `screens/app/ProductionScreen.tsx` — ports `pages/Production.tsx`:
+  a paginated, searchable log of production runs (run number,
+  date/shift, operator, machine, product, output, rejects), a "Log
+  production" form (operator/machine/product/date/shift/output/
+  reject/notes, with a live "stock will go from X to Y" preview), and
+  — after saving — a dismissible result banner showing per-raw-material
+  consumption (before → after stock, line cost) and the RM+overhead
+  cost total the backend computed from the product's active BOM.
+
+Two things worth flagging:
+- This screen has no edit or delete. The web app doesn't offer one
+  either — a run's stock/cost effects are one-way (it consumes RM
+  stock via the BOM and adds to FG stock), so undoing one isn't a
+  simple field update. Parity, not a gap.
+- Run date is a plain `TextField` (`YYYY-MM-DD`, defaulting to
+  today's date as the placeholder) rather than a native date picker.
+  RN has no cross-platform date input the way the web's
+  `<input type="date">` is free — pulling in
+  `@react-native-community/datetimepicker` is a reasonable follow-up
+  if manual date entry proves annoying on a real device, but wasn't
+  worth the extra dependency for a first pass.
+
+`api.ts` picked up `ProductionRun`/`ProductionRunInput`/
+`ProductionRunResult` types and `listProductionRuns`/
+`createProductionRun`. `Production` is `implemented: true` in
+`navConfig.ts` and registered in `AppNavigator.tsx`.
+
 ## Phase 2b — still not built, here's why
 
 The remaining transactional pages — **Receipts** (1100 lines on the
-web), **Payables**, **Production**, **Sales**,
-**Salaries/SalaryDetail** — are a different category of work from
-everything shipped so far. They involve multi-line item entry,
-running balances, payment allocation across multiple receipts, and
-calculated totals (GST, stock consumption, payroll). None of them fit
-`MasterCrudScreen`, and each needs its own bespoke screen roughly on
-the order of what BOM/BomEdit just took, or larger.
+web), **Payables**, **Sales**, **Salaries/SalaryDetail** — are a
+different category of work from everything shipped so far. They
+involve multi-line item entry, running balances, payment allocation
+across multiple receipts, and calculated totals (GST, payroll). None
+of them fit `MasterCrudScreen`, and each needs its own bespoke screen
+roughly on the order of what BOM/BomEdit or Production just took, or
+larger — Receipts and Payables especially, given the running-balance
+and partial-payment logic neither Production nor BOM had to deal with.
 
 Splitting this out rather than rushing a shallow version of each
 matches how Job Work and Overheads were scoped down in Phase 1 — it's
 better to hand you a clear boundary than a set of screens that look
-done but don't handle the actual business logic (stock reversal on
-receipt edit, partial payment tracking, BOM-driven consumption on a
-production run, etc.) correctly.
+done but don't handle the actual business logic (partial payment
+tracking, GST calc on line items, monthly payroll aggregation, etc.)
+correctly.
 
 Suggested order for what's left, easiest-to-hardest:
-1. **Production** — consumes BOM + raw material stock, single-form entry
-2. **Other Expenses'-shaped Sales** — invoice with line items + GST calc
-3. **Receipts** — supplier receipt + payment status
-4. **Payables** — running balance across receipts, partial payments
-5. **Salaries / SalaryDetail** — monthly payroll calc, nested list→detail
+1. **Other Expenses'-shaped Sales** — invoice with line items + GST calc
+2. **Receipts** — supplier receipt + payment status
+3. **Payables** — running balance across receipts, partial payments
+4. **Salaries / SalaryDetail** — monthly payroll calc, nested list→detail
 
 ## Once Phase 2b is fully done
 
