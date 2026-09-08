@@ -67,7 +67,7 @@ export const NAV: NavEntry[] = [
   {
     groupId: 'operations', icon: Factory, label: 'Operations',
     children: [
-      { screen: 'Production', icon: Activity, label: 'Production' },
+      { screen: 'Production', icon: Activity, label: 'Production', implemented: true },
       { screen: 'Receipts', icon: PackageCheck, label: 'Receipts' },
       { screen: 'Reorder', icon: AlertTriangle, label: 'Reorder', implemented: true },
     ],
