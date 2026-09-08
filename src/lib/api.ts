@@ -584,6 +584,81 @@ export interface OtherExpenseCategory {
   count: number;
 }
 
+// ─── Phase 2b: BOM (Bill of Materials) ────────────────────────────────
+export type BomStatus = 'draft' | 'active' | 'archived';
+
+export interface BomVersion {
+  id: string;
+  company_id: string;
+  fg_id: string;
+  version_number: number;
+  status: BomStatus;
+  notes: string | null;
+  effective_from: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface BomLine {
+  id: string;
+  rm_id: string;
+  rm_code: string;
+  rm_name: string;
+  rm_unit: string;
+  current_stock: string;
+  last_purchase_rate: string | null;
+  quantity_per_unit_fg: string;
+  notes: string | null;
+}
+export interface BomOverheadLine {
+  id: string;
+  overhead_id: string;
+  overhead_code: string;
+  overhead_name: string;
+  amount_per_unit: string;
+  notes: string | null;
+}
+export interface BomListItem {
+  fg_id: string;
+  fg_code: string;
+  fg_name: string;
+  unit: string;
+  fg_is_active: boolean;
+  active_version_id: string | null;
+  active_version_number: number | null;
+  active_updated_at: string | null;
+  version_count: number;
+  line_count: number;
+}
+export interface BomVersionSummary {
+  id: string;
+  version_number: number;
+  status: BomStatus;
+  notes: string | null;
+  effective_from: string | null;
+  created_at: string;
+  updated_at: string;
+  line_count: number;
+  overhead_count: number;
+}
+export interface BomLineInput {
+  rm_id: number | string;
+  quantity_per_unit_fg: number;
+  notes?: string;
+}
+export interface BomOverheadInput {
+  overhead_id: number | string;
+  amount_per_unit: number;
+  notes?: string;
+}
+export interface BomCreateInput {
+  fg_id: number | string;
+  notes?: string;
+  effective_from?: string;
+  activate_now?: boolean;
+  lines: BomLineInput[];
+  overheads?: BomOverheadInput[];
+}
+
 // ─── API surface (Phase 0: Auth + Companies only) ────────────────────
 export const api = {
   // Auth
@@ -889,9 +964,46 @@ export const api = {
     return request<{ expense: OtherExpense }>(`/api/other-expenses/${id}`, { method: 'DELETE' });
   },
 
-  // ── Phase 2b will add here: Receipts, Payables, Production, Sales, ─
-  // ── BOM, Salaries — these have multi-line items / running balances /
-  // ── payment allocation and need bespoke screens, not ───────────────
-  // ── MasterCrudScreen. See the migration plan for why they're split
-  // ── out from Phase 2a. request()/qs() above still need no changes. ─
+  // ── Phase 2b ────────────────────────────────────────────────────────
+
+  // BOM
+  listBom() {
+    return request<{ items: BomListItem[] }>('/api/bom');
+  },
+  bomVersionsForFg(fgId: number | string) {
+    return request<{ versions: BomVersionSummary[] }>(`/api/bom/fg/${fgId}/versions`);
+  },
+  bomActiveForFg(fgId: number | string) {
+    return request<{
+      version: BomVersion | null;
+      lines: BomLine[];
+      overheads: BomOverheadLine[];
+    }>(`/api/bom/fg/${fgId}/active`);
+  },
+  getBomVersion(versionId: number | string) {
+    return request<{
+      version: BomVersion & { fg_code: string; fg_name: string; fg_unit: string };
+      lines: BomLine[];
+      overheads: BomOverheadLine[];
+    }>(`/api/bom/versions/${versionId}`);
+  },
+  createBom(input: BomCreateInput) {
+    return request<{ version: BomVersion }>('/api/bom', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  activateBom(versionId: number | string) {
+    return request<{ version: BomVersion }>(`/api/bom/versions/${versionId}/activate`, {
+      method: 'POST',
+    });
+  },
+  archiveBom(versionId: number | string) {
+    return request<{ version: BomVersion }>(`/api/bom/versions/${versionId}/archive`, {
+      method: 'POST',
+    });
+  },
+
+  // ── Phase 2b still to add: Receipts, Payables, Production, Sales, ──
+  // ── Salaries — see README "Continuing into Phase 2b" for the plan. ─
 };
