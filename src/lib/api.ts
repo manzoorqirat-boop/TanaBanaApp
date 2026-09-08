@@ -659,6 +659,63 @@ export interface BomCreateInput {
   overheads?: BomOverheadInput[];
 }
 
+// ─── Phase 2b: Production runs ─────────────────────────────────────────
+export interface ProductionRun {
+  id: string;
+  run_number: string;
+  run_date: string;
+  shift: string | null;
+  operator_id: string;
+  operator_code: string;
+  operator_name: string;
+  machine_id: string;
+  machine_code: string;
+  machine_name: string;
+  fg_id: string;
+  fg_code: string;
+  fg_name: string;
+  fg_unit: string;
+  output_quantity: string;
+  reject_quantity: string;
+  notes: string | null;
+  created_at: string;
+}
+export interface ProductionRunInput {
+  operator_id: number | string;
+  machine_id: number | string;
+  fg_id: number | string;
+  output_quantity: number;
+  reject_quantity?: number;
+  run_date?: string;
+  shift?: string;
+  notes?: string;
+}
+export interface ProductionRunResult {
+  run: ProductionRun & {
+    bom_version_id: string | null;
+    rm_cost_at_creation: string | null;
+    overhead_cost_at_creation: string | null;
+    total_cost_at_creation: string | null;
+  };
+  consumption: Array<{
+    rm_id: string;
+    rm_code: string;
+    rm_name: string;
+    rm_unit: string;
+    consumed_qty: number;
+    before_stock: number;
+    after_stock: number;
+    unit_rate: number | null;
+    line_cost: number;
+  }>;
+  warnings: string[];
+  cost: {
+    rm_cost: number | null;
+    overhead_cost: number | null;
+    total_cost: number | null;
+  };
+}
+
 // ─── API surface (Phase 0: Auth + Companies only) ────────────────────
 export const api = {
   // Auth
@@ -1004,6 +1061,29 @@ export const api = {
     });
   },
 
-  // ── Phase 2b still to add: Receipts, Payables, Production, Sales, ──
-  // ── Salaries — see README "Continuing into Phase 2b" for the plan. ─
+  // Production runs
+  listProductionRuns(params?: {
+    q?: string;
+    operator_id?: number | string;
+    machine_id?: number | string;
+    fg_id?: number | string;
+    shift?: string;
+    from_date?: string;
+    to_date?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return request<{ runs: ProductionRun[]; pagination: PageMeta }>(
+      `/api/production-runs${qs(params as Record<string, string | number | undefined>)}`,
+    );
+  },
+  createProductionRun(input: ProductionRunInput) {
+    return request<ProductionRunResult>('/api/production-runs', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  // ── Phase 2b still to add: Receipts, Payables, Sales, Salaries — ───
+  // ── see README "Phase 2b — still not built" for the plan. ──────────
 };
