@@ -15,6 +15,7 @@ import RawMaterialsScreen from '../screens/app/RawMaterialsScreen';
 import FinishedProductsScreen from '../screens/app/FinishedProductsScreen';
 import ReorderScreen from '../screens/app/ReorderScreen';
 import OtherExpensesScreen from '../screens/app/OtherExpensesScreen';
+import BomScreen from '../screens/app/BomScreen';
 import { DrawerContent } from './DrawerContent';
 import { flattenNavScreens } from './navConfig';
 
@@ -23,8 +24,9 @@ const Drawer = createDrawerNavigator();
 // Every screen name from navConfig gets a route. Phase 0 shipped
 // Dashboard; Phase 1 added 10 CRUD/report pages; Phase 2a adds the
 // simple-enough-for-MasterCrudScreen transactional pages below.
-// Phase 2b (Receipts, Payables, Production, Sales, BOM, Salaries)
-// still renders PlaceholderScreen — see the migration plan/README.
+// Phase 2b: BOM ships here (bespoke, list + full-screen editor, see
+// BomScreen.tsx/BomEditScreen.tsx). Receipts, Payables, Production,
+// Sales, Salaries still render PlaceholderScreen — see the README.
 const SCREEN_COMPONENTS: Record<string, React.ComponentType> = {
   Dashboard: DashboardScreen,
   Units: UnitsScreen,
@@ -41,6 +43,7 @@ const SCREEN_COMPONENTS: Record<string, React.ComponentType> = {
   FinishedProducts: FinishedProductsScreen,
   Reorder: ReorderScreen,
   OtherExpenses: OtherExpensesScreen,
+  Bom: BomScreen,
 };
 
 /**
