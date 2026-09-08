@@ -1,10 +1,13 @@
-# QMfg Mobile — Phase 0 + Phase 1
+# QMfg Mobile — Phase 0 + Phase 1 + Phase 2a + Phase 2b (BOM)
 
-React Native/Expo port of QMfg-Frontend. This delivers **Phase 0**
-(auth, navigation shell, theme tokens, reusable primitives) and
-**Phase 1** — the 10 simple CRUD/report pages: Units, Machines,
-Operators, Suppliers, Customers, Equipment Master, Overheads, Job
-Workers, Stock Alerts, and Tenants.
+React Native/Expo port of QMfg-Frontend. Delivered so far: **Phase 0**
+(auth, navigation shell, theme tokens, reusable primitives); **Phase
+1** — 10 simple CRUD/report pages (Units, Machines, Operators,
+Suppliers, Customers, Equipment Master, Overheads, Job Workers, Stock
+Alerts, Tenants); **Phase 2a** — Raw Materials, Finished Products,
+Reorder, Other Expenses; and, from **Phase 2b**, **BOM/BomEdit**.
+Production, Sales, Receipts, Payables, and Salaries are still open —
+see "Phase 2b — still not built" below.
 
 ## What's here
 
@@ -153,16 +156,48 @@ no Active toggle, a real "Delete expense" button instead, via a new
 itself, so all earlier Phase 1 screens picked up a working
 deactivate/delete button too).
 
-## Phase 2b — not built yet, here's why
+## Phase 2b (in progress)
+
+**BOM / BomEdit — shipped this update.** Two new files:
+
+- `screens/app/BomScreen.tsx` — ports `pages/Bom.tsx`: one row per
+  finished product, "with active BOM" / "need BOM setup" summary
+  tiles, search. Tapping a row (or the top-bar "+") opens the editor.
+- `screens/app/BomEditScreen.tsx` — ports `pages/BomEdit.tsx`: FG
+  picker, raw-material line editor (qty per unit FG, live per-line
+  cost from `last_purchase_rate`), overhead line editor (defaults to
+  each overhead's `default_amount_per_unit`, flags when customised),
+  a live RM+overhead cost-per-unit preview, version notes, and a
+  "save as draft" vs "save & activate" toggle (activating archives
+  the prior active version, same as the web app).
+
+Rendering note: unlike Receipts/Payables/etc below, BOM's editor is
+rendered *in place of* `BomScreen`'s list (a local `editorFgId` state
+flip), not as a `Modal` like `MasterCrudScreen` uses — it's too tall
+a form for a sheet-style modal to feel right, so it gets its own
+scrollable screen with a back chevron instead. `AppNavigator` and
+`navConfig.ts` both point `Bom` at `BomScreen` now
+(`implemented: true`). `api.ts` picked up the full BOM section
+(types + `listBom`/`bomVersionsForFg`/`bomActiveForFg`/
+`getBomVersion`/`createBom`/`activateBom`/`archiveBom`).
+
+Not yet wired: `activateBom`/`archiveBom` exist on `api` but have no
+UI trigger — the web app doesn't expose them as direct user actions
+outside the create-new-version flow either (a version's `status` is
+otherwise managed by `createBom`'s `activate_now` flag), so this
+matches parity. Add a manual activate/archive action later only if a
+real need for it shows up.
+
+## Phase 2b — still not built, here's why
 
 The remaining transactional pages — **Receipts** (1100 lines on the
-web), **Payables**, **Production**, **Sales**, **BOM/BomEdit**,
+web), **Payables**, **Production**, **Sales**,
 **Salaries/SalaryDetail** — are a different category of work from
 everything shipped so far. They involve multi-line item entry,
 running balances, payment allocation across multiple receipts, and
 calculated totals (GST, stock consumption, payroll). None of them fit
 `MasterCrudScreen`, and each needs its own bespoke screen roughly on
-the order of what Tenants required, times six.
+the order of what BOM/BomEdit just took, or larger.
 
 Splitting this out rather than rushing a shallow version of each
 matches how Job Work and Overheads were scoped down in Phase 1 — it's
@@ -171,10 +206,22 @@ done but don't handle the actual business logic (stock reversal on
 receipt edit, partial payment tracking, BOM-driven consumption on a
 production run, etc.) correctly.
 
-Suggested order for Phase 2b, easiest-to-hardest:
-1. **BOM / BomEdit** — recipe line items, no payment/balance tracking
-2. **Production** — consumes BOM + raw material stock, single-form entry
-3. **Other Expenses'-shaped Sales** — invoice with line items + GST calc
-4. **Receipts** — supplier receipt + payment status
-5. **Payables** — running balance across receipts, partial payments
-6. **Salaries / SalaryDetail** — monthly payroll calc, nested list→detail
+Suggested order for what's left, easiest-to-hardest:
+1. **Production** — consumes BOM + raw material stock, single-form entry
+2. **Other Expenses'-shaped Sales** — invoice with line items + GST calc
+3. **Receipts** — supplier receipt + payment status
+4. **Payables** — running balance across receipts, partial payments
+5. **Salaries / SalaryDetail** — monthly payroll calc, nested list→detail
+
+## Once Phase 2b is fully done
+
+Phase 3 (GST Report, P&L, Cash Flow, Receivables, Payables report
+view, Audit Trail) needs a `<ReportTable>` primitive decided once and
+reused everywhere — see the migration plan for the card-per-row vs.
+horizontally-scrollable-grid tradeoff. Do a throwaway spike on GST
+Report specifically before committing, since it's the widest report.
+Phase 4 (RoleGate route guards, LanguageToggle/HeaderSearch ports,
+offline/loading/error sweep, EAS Android build) is last and doesn't
+depend on Phase 3 — it could in principle start in parallel once
+Phase 2b is done, if you want to get an installable build in testers'
+hands before the reports are finished.
