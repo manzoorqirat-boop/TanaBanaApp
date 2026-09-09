@@ -68,14 +68,14 @@ export const NAV: NavEntry[] = [
     groupId: 'operations', icon: Factory, label: 'Operations',
     children: [
       { screen: 'Production', icon: Activity, label: 'Production', implemented: true },
-      { screen: 'Receipts', icon: PackageCheck, label: 'Receipts' },
+      { screen: 'Receipts', icon: PackageCheck, label: 'Receipts', implemented: true },
       { screen: 'Reorder', icon: AlertTriangle, label: 'Reorder', implemented: true },
     ],
   },
   {
     groupId: 'sales', icon: ShoppingCart, label: 'Sales',
     children: [
-      { screen: 'Sales', icon: Receipt, label: 'Sales' },
+      { screen: 'Sales', icon: Receipt, label: 'Sales', implemented: true },
       { screen: 'Customers', icon: UserCircle2, label: 'Customers', implemented: true },
     ],
   },
@@ -83,13 +83,13 @@ export const NAV: NavEntry[] = [
     groupId: 'workforce', icon: Users, label: 'Workforce',
     children: [
       { screen: 'Operators', icon: Users, label: 'Operators', implemented: true },
-      { screen: 'Salaries', icon: Banknote, label: 'Salaries' },
+      { screen: 'Salaries', icon: Banknote, label: 'Salaries', implemented: true },
     ],
   },
   {
     groupId: 'money', icon: Wallet, label: 'Money',
     children: [
-      { screen: 'Payables', icon: Wallet, label: 'Payables' },
+      { screen: 'Payables', icon: Wallet, label: 'Payables', implemented: true },
       { screen: 'OtherExpenses', icon: Wallet, label: 'Other expenses', implemented: true },
     ],
   },
