@@ -1,13 +1,15 @@
-# QMfg Mobile — Phase 0 + Phase 1 + Phase 2a + Phase 2b (BOM, Production)
+# QMfg Mobile — Phase 0 through Phase 2b complete
 
 React Native/Expo port of QMfg-Frontend. Delivered so far: **Phase 0**
 (auth, navigation shell, theme tokens, reusable primitives); **Phase
 1** — 10 simple CRUD/report pages (Units, Machines, Operators,
 Suppliers, Customers, Equipment Master, Overheads, Job Workers, Stock
 Alerts, Tenants); **Phase 2a** — Raw Materials, Finished Products,
-Reorder, Other Expenses; and, from **Phase 2b**, **BOM/BomEdit** and
-**Production**. Sales, Receipts, Payables, and Salaries are still
-open — see "Phase 2b — still not built" below.
+Reorder, Other Expenses; and **Phase 2b** — BOM/BomEdit, Production,
+**Receipts, Payables, Sales, and Salaries/SalaryDetail**. Every page
+in the migration plan through Phase 2 is now built. Phase 3 (reports)
+and Phase 4 (polish/Android build) are next — see "Continuing into
+Phase 3" below.
 
 ## What's here
 
@@ -33,7 +35,9 @@ src/
   components/
     ui/                        Button, Card, TextField, Select,
                                  ListRow, EmptyState, ErrorBanner,
-                                 LanguageToggle
+                                 LanguageToggle, GstRatePicker (Phase 2b —
+                                 standard-slab dropdown + "Other…", used
+                                 by Receipts' create/edit forms)
     crud/
       MasterCrudScreen.tsx      generic list+search+create/edit screen
                                  driving 8 of the 10 Phase 1 pages
@@ -54,6 +58,16 @@ src/
       JobWorkScreen.tsx        ┘ (master list only — see note below)
       StockAlertsScreen.tsx    bespoke — read-only report, two tabs
       TenantsScreen.tsx        bespoke — impersonation-based edit flow
+      BomScreen.tsx / BomEditScreen.tsx      Phase 2b — recipe editor
+      ProductionScreen.tsx     Phase 2b — log + create form + result banner
+      ReceiptsScreen.tsx       Phase 2b — RM receipts: list/filter/paginate,
+                                 GST-aware create, edit, cancel
+      PayablesScreen.tsx       Phase 2b — supplier drill-down, pay-in-full
+      SalesScreen.tsx          Phase 2b — invoice log, GST calc,
+                                 partial-payment manager
+      SalariesScreen.tsx /     Phase 2b — month picker, generate, summary
+      SalaryDetailScreen.tsx    tiles; detail rendered in-place (adjust/
+                                 approve/mark-paid/revert/delete)
 ```
 
 ## Phase 1 scoping notes (read before building against these)
@@ -217,40 +231,104 @@ Two things worth flagging:
 `createProductionRun`. `Production` is `implemented: true` in
 `navConfig.ts` and registered in `AppNavigator.tsx`.
 
-## Phase 2b — still not built, here's why
+## Phase 2b — now complete: Receipts, Payables, Sales, Salaries
 
-The remaining transactional pages — **Receipts** (1100 lines on the
-web), **Payables**, **Sales**, **Salaries/SalaryDetail** — are a
-different category of work from everything shipped so far. They
-involve multi-line item entry, running balances, payment allocation
-across multiple receipts, and calculated totals (GST, payroll). None
-of them fit `MasterCrudScreen`, and each needs its own bespoke screen
-roughly on the order of what BOM/BomEdit or Production just took, or
-larger — Receipts and Payables especially, given the running-balance
-and partial-payment logic neither Production nor BOM had to deal with.
+The remaining transactional pages all shipped as bespoke screens
+(none fit `MasterCrudScreen` — each has calculated totals, filters, or
+a multi-step flow `MasterCrudScreen`'s generic list+modal shape can't
+express):
 
-Splitting this out rather than rushing a shallow version of each
-matches how Job Work and Overheads were scoped down in Phase 1 — it's
-better to hand you a clear boundary than a set of screens that look
-done but don't handle the actual business logic (partial payment
-tracking, GST calc on line items, monthly payroll aggregation, etc.)
-correctly.
+- **`screens/app/ReceiptsScreen.tsx`** — ports `pages/Receipts.tsx`:
+  paginated/searchable/status-filterable list of RM receipts; create
+  form with a live taxable/GST/total preview matching the backend's
+  calc exactly (`GstRatePicker` for the rate, current-stock hint on
+  the RM picker); edit (safe fields free; the quantity/rate/GST trio
+  adjusts stock and surfaces a clamp warning banner if reversal hit
+  zero); cancel (bottom-sheet confirmation, extra warning if the
+  receipt was already paid). `api.ts` picked up
+  `RmReceipt`/`RmReceiptInput`/`ReceiptPaymentStatus`/`PaymentMode`
+  and `listRmReceipts`/`createRmReceipt`/`updateRmReceipt`/
+  `cancelRmReceipt`.
+- **`screens/app/PayablesScreen.tsx`** — ports `pages/Payables.tsx`:
+  a two-level drill-down, same shape as the web version — supplier
+  list with unpaid totals (plus a grand-total card) at the top level,
+  tapping one drills into that supplier's individual unpaid receipts,
+  each payable in full via a `PayForm` (mode/date/reference/notes).
+  Deliberately **not** partial-payment — that's how the web app's
+  supplier payables work (only Sales supports partial payment
+  amounts). `api.ts` picked up `PayablesSupplier`/`PayablesReceipt`/
+  `SupplierPayment`/`SupplierPaymentInput` and
+  `payablesBySupplier`/`payablesForSupplier`/`recordPayment`.
+- **`screens/app/SalesScreen.tsx`** — ports `pages/Sales.tsx`: invoice
+  list with a payment-status pill per row; create form with a
+  customer picker (or free-text walk-in name), FG picker with a
+  stock-after preview, an inclusive/exclusive GST rate toggle, and a
+  live taxable/tax/total breakdown; a post-save result banner
+  (stock before → after, warnings); and a `PaymentManager` modal
+  supporting **partial** payments — balance/paid/advance summary,
+  add-payment form with an overpay-becomes-advance notice, and a
+  deletable payment history list. `api.ts` picked up
+  `Sale`/`SaleInput`/`SaleResult`/`SalePayment` and
+  `listSales`/`createSale`/`salePayments`/`addSalePayment`/
+  `deleteSalePayment`.
+- **`screens/app/SalariesScreen.tsx`** + **`SalaryDetailScreen.tsx`**
+  — ports `pages/Salaries.tsx` + `pages/SalaryDetail.tsx`: month
+  picker with arrow navigation, status filter, client-side name
+  search, summary tiles (records/gross/paid/unpaid), and a "Generate"
+  bottom sheet (monthly / weekly with auto-filled 7-day end date /
+  custom range, max 62 days). Tapping a row flips to
+  `SalaryDetailScreen` **rendered in place** — the same
+  local-state-flip pattern `BomScreen` uses for `BomEditScreen`,
+  rather than a separate nav route — showing the pay-basis snapshot,
+  full computation breakdown (pieces/fixed/bonus/deductions/advance
+  → gross → net), the piece-rate production-run lines table, and
+  status-gated actions (draft: recompute/adjust/approve/delete;
+  approved: revert-to-draft/mark-paid; paid: read-only payment info).
+  `api.ts` picked up `SalaryPeriod`/`SalaryLine`/`SalarySummary`/
+  `SalaryGenerateResult`/`SalaryEditInput`/`SalaryMarkPaidInput` and
+  the full `listSalaries`/`salarySummary`/`getSalary`/
+  `generateSalaries`/`generateSalariesForRange`/`updateSalary`/
+  `recomputeSalary`/`approveSalary`/`markSalaryPaid`/
+  `revertSalaryToDraft`/`deleteSalary` set.
 
-Suggested order for what's left, easiest-to-hardest:
-1. **Other Expenses'-shaped Sales** — invoice with line items + GST calc
-2. **Receipts** — supplier receipt + payment status
-3. **Payables** — running balance across receipts, partial payments
-4. **Salaries / SalaryDetail** — monthly payroll calc, nested list→detail
+One intentional gap: the web app's **"Print slip"** button on
+`SalaryDetail` opens a new browser window and calls `window.print()`
+— there's no RN equivalent, so it wasn't ported. If a printable/
+shareable salary slip turns out to matter, the cleanest path is
+generating a PDF server-side (or with `expo-print`) and using RN's
+`Share` API, rather than trying to fake a print dialog.
 
-## Once Phase 2b is fully done
+All four screens are wired up: `navConfig.ts` has `implemented: true`
+on `Receipts`/`Payables`/`Sales`/`Salaries`, and `AppNavigator.tsx`
+registers all four in `SCREEN_COMPONENTS`. The whole project
+type-checks clean (`npx tsc --noEmit`) other than one pre-existing,
+unrelated error in `BomEditScreen.tsx`.
 
-Phase 3 (GST Report, P&L, Cash Flow, Receivables, Payables report
-view, Audit Trail) needs a `<ReportTable>` primitive decided once and
-reused everywhere — see the migration plan for the card-per-row vs.
-horizontally-scrollable-grid tradeoff. Do a throwaway spike on GST
-Report specifically before committing, since it's the widest report.
-Phase 4 (RoleGate route guards, LanguageToggle/HeaderSearch ports,
-offline/loading/error sweep, EAS Android build) is last and doesn't
-depend on Phase 3 — it could in principle start in parallel once
-Phase 2b is done, if you want to get an installable build in testers'
-hands before the reports are finished.
+## Continuing into Phase 3 (reports)
+
+Every page through Phase 2 is now built. What's left, per the
+migration plan:
+
+**Phase 3 — GST Report, P&L, Cash Flow, Receivables, Payables report
+view, Audit Trail.** The hard part: there's no RN `<table>`
+equivalent, so before touching any individual report, decide and
+build one shared `<ReportTable>` primitive (in `components/ui/`) —
+card-per-row for portrait phone use vs. a horizontally-scrollable grid
+for wide reports (GST/P&L likely need the grid). Do a throwaway spike
+against **GST Report** specifically first, since it's the widest
+report and will stress-test whichever layout you pick before you
+commit to it across five more screens. Add a shared date-range/filter
+control (bottom sheet or header component) alongside it — every
+Phase 3 page needs one. Audit Trail is the cheap one in this bucket —
+it's just a long filterable list, not a financial grid.
+
+**Phase 4 — RoleGate route guards, LanguageToggle/HeaderSearch ports,
+offline/loading/error sweep, EAS Android build.** Doesn't depend on
+Phase 3 and could start in parallel if you want an installable build
+in testers' hands before the reports are finished. `RoleGate` becomes
+a navigation-level guard (redirect before a screen mounts rather than
+after); `LanguageToggle.tsx` already has a `components/ui/` port from
+Phase 0 wired into the drawer — confirm it's reachable from every
+screen, not just the drawer footer; `HeaderSearch.tsx`'s port depends
+on how deep the web version's search logic actually runs, so budget
+time to check before assuming it's a trivial copy.
