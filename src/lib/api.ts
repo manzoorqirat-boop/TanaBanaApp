@@ -716,6 +716,243 @@ export interface ProductionRunResult {
   };
 }
 
+// ─── Phase 2b: RM Receipts ─────────────────────────────────────────────
+export type ReceiptPaymentStatus = 'unpaid' | 'paid' | 'cancelled';
+export type PaymentMode = 'cash' | 'bank' | 'upi' | 'cheque' | 'other';
+
+export interface RmReceipt {
+  id: string;
+  receipt_number: string;
+  receipt_date: string;
+  supplier_id: string;
+  supplier_name: string;
+  supplier_code: string;
+  rm_id: string;
+  rm_code: string;
+  rm_name: string;
+  unit: string;
+  quantity: string;
+  unit_rate: string;
+  gst_rate: string;
+  taxable_value: string;
+  tax_amount: string;
+  cgst_amount: string;
+  sgst_amount: string;
+  igst_amount: string;
+  is_interstate: boolean;
+  line_total: string;
+  stock_warning: string | null;
+  cancelled_at: string | null;
+  supplier_invoice_number: string;
+  supplier_invoice_date: string;
+  supplier_invoice_total: string | null;
+  payment_status: ReceiptPaymentStatus;
+  paid_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+export interface RmReceiptInput {
+  supplier_id: number | string;
+  rm_id: number | string;
+  quantity: number;
+  unit_rate: number;
+  gst_rate?: number;
+  receipt_date?: string;
+  supplier_invoice_number: string;
+  supplier_invoice_date: string;
+  supplier_invoice_total?: number;
+  notes?: string;
+}
+
+export interface PayablesSupplier {
+  supplier_id: string;
+  supplier_name: string;
+  supplier_code: string;
+  unpaid_count: number;
+  unpaid_total: string;
+}
+export interface PayablesReceipt {
+  id: string;
+  receipt_number: string;
+  receipt_date: string;
+  supplier_invoice_number: string;
+  supplier_invoice_date: string;
+  line_total: string;
+  payment_status: ReceiptPaymentStatus;
+  rm_code: string;
+  rm_name: string;
+  unit: string;
+  quantity: string;
+  unit_rate: string;
+}
+export interface SupplierPayment {
+  id: string;
+  payment_number: string;
+  payment_date: string;
+  payment_mode: PaymentMode;
+  amount: string;
+  reference: string | null;
+  notes: string | null;
+  supplier_id: string;
+  supplier_name: string;
+  supplier_code: string;
+  receipt_id: string;
+  receipt_number: string;
+  supplier_invoice_number: string;
+  created_at: string;
+}
+export interface SupplierPaymentInput {
+  receipt_id: number | string;
+  payment_mode: PaymentMode;
+  amount?: number;
+  payment_date?: string;
+  reference?: string;
+  notes?: string;
+}
+
+// ─── Phase 2b: Sales ────────────────────────────────────────────────────
+export interface SalePayment {
+  id: string;
+  amount: string;
+  payment_date: string;
+  payment_mode: string;
+  reference: string | null;
+  note: string | null;
+  created_at: string;
+  by_name: string | null;
+}
+export interface Sale {
+  id: string;
+  invoice_number: string;
+  sale_date: string;
+  customer_id: string | null;
+  customer_code: string | null;
+  customer_name_snapshot: string;
+  fg_id: string;
+  fg_code_snapshot: string;
+  fg_name_snapshot: string;
+  quantity: string;
+  unit_rate: string;
+  amount: string;
+  gst_rate_snapshot: string | null;
+  taxable_value: string | null;
+  cgst_amount: string;
+  sgst_amount: string;
+  igst_amount: string;
+  total_tax: string;
+  invoice_total: string | null;
+  place_of_supply: string | null;
+  is_interstate: boolean;
+  payment_status: 'paid' | 'unpaid' | 'partial';
+  payment_date: string | null;
+  payment_mode: string | null;
+  notes: string | null;
+  created_at: string;
+}
+export interface SaleInput {
+  invoice_number: string;
+  sale_date?: string;
+  customer_id?: number | string;
+  customer_name?: string;
+  fg_id: number | string;
+  quantity: number;
+  unit_rate: number;
+  rate_is_inclusive?: boolean;
+  place_of_supply?: string;
+  notes?: string;
+}
+export interface SaleResult {
+  sale: Sale;
+  stock: { before: number; after: number };
+  warnings: string[];
+}
+
+// ─── Phase 2b: Salaries ─────────────────────────────────────────────────
+export type SalaryStatus = 'draft' | 'approved' | 'paid';
+
+export interface SalaryPeriod {
+  id: string;
+  company_id: string;
+  operator_id: string;
+  operator_code: string;
+  operator_name: string;
+  period_year: number;
+  period_month: number;
+  period_type: 'monthly' | 'weekly' | 'custom';
+  period_start: string | null;
+  period_end: string | null;
+  pay_model_snapshot: PayModel;
+  piece_rate_snapshot: string | null;
+  monthly_salary_snapshot: string | null;
+  pieces_total: string;
+  pieces_amount: string;
+  fixed_amount: string;
+  bonus: string;
+  bonus_notes: string | null;
+  deductions: string;
+  deductions_notes: string | null;
+  advance: string;
+  advance_notes: string | null;
+  gross_amount: string;
+  net_amount: string;
+  status: SalaryStatus;
+  payment_date: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  notes: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface SalaryLine {
+  id: string;
+  production_run_id: string | null;
+  run_number_snapshot: string;
+  run_date_snapshot: string;
+  fg_name_snapshot: string | null;
+  output_quantity: string;
+  rate_applied: string;
+  line_amount: string;
+}
+export interface SalarySummary {
+  count: number;
+  draft_count: number;
+  approved_count: number;
+  paid_count: number;
+  gross_total: string;
+  net_total: string;
+  paid_total: string;
+  unpaid_total: string;
+}
+export interface SalaryGenerateResult {
+  created: Array<{
+    salary_id: string;
+    operator_id: string;
+    operator_name: string;
+    pay_model: PayModel;
+    pieces_total: number;
+    pieces_amount: number;
+    fixed_amount: number;
+    gross: number;
+  }>;
+  skipped: Array<{ operator_id: string; name: string; reason: string }>;
+}
+export interface SalaryEditInput {
+  bonus?: number;
+  bonus_notes?: string;
+  deductions?: number;
+  deductions_notes?: string;
+  advance?: number;
+  advance_notes?: string;
+  notes?: string;
+}
+export interface SalaryMarkPaidInput {
+  payment_date?: string;
+  payment_method?: string;
+  payment_reference?: string;
+}
+
 // ─── API surface (Phase 0: Auth + Companies only) ────────────────────
 export const api = {
   // Auth
@@ -1084,6 +1321,158 @@ export const api = {
     });
   },
 
-  // ── Phase 2b still to add: Receipts, Payables, Sales, Salaries — ───
-  // ── see README "Phase 2b — still not built" for the plan. ──────────
+  // RM Receipts
+  listRmReceipts(params?: {
+    q?: string;
+    supplier_id?: number | string;
+    rm_id?: number | string;
+    payment_status?: ReceiptPaymentStatus;
+    from_date?: string;
+    to_date?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const qsParams: Record<string, string | number | undefined> = params
+      ? {
+          q: params.q,
+          supplier_id: params.supplier_id ? String(params.supplier_id) : undefined,
+          rm_id: params.rm_id ? String(params.rm_id) : undefined,
+          payment_status: params.payment_status,
+          from_date: params.from_date,
+          to_date: params.to_date,
+          page: params.page,
+          limit: params.limit,
+        }
+      : {};
+    return request<{ receipts: RmReceipt[]; pagination: PageMeta }>(`/api/rm-receipts${qs(qsParams)}`);
+  },
+  createRmReceipt(input: RmReceiptInput) {
+    return request<{ receipt: RmReceipt }>('/api/rm-receipts', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  // Edit a receipt. Safe fields free; quantity/rate/gst adjust stock —
+  // response may include a `warning` when stock reversal was clamped.
+  updateRmReceipt(id: number | string, patch: Partial<RmReceiptInput>) {
+    return request<{ receipt: RmReceipt; warning: string | null }>(`/api/rm-receipts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  },
+  // Cancel (void) a receipt. Reverses stock, clamped at zero.
+  cancelRmReceipt(id: number | string) {
+    return request<{ receipt: RmReceipt; warning: string | null }>(`/api/rm-receipts/${id}/cancel`, {
+      method: 'POST',
+    });
+  },
+  payablesBySupplier() {
+    return request<{ suppliers: PayablesSupplier[] }>('/api/rm-receipts/payables');
+  },
+  payablesForSupplier(supplierId: number | string) {
+    return request<{ receipts: PayablesReceipt[] }>(`/api/rm-receipts/payables/${supplierId}`);
+  },
+
+  // Supplier payments
+  recordPayment(input: SupplierPaymentInput) {
+    return request<{ payment: SupplierPayment }>('/api/supplier-payments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  // Sales
+  listSales(params?: {
+    q?: string;
+    from_date?: string;
+    to_date?: string;
+    fg_id?: number | string;
+    customer_id?: number | string;
+    page?: number;
+    limit?: number;
+  }) {
+    return request<{ sales: Sale[]; pagination: PageMeta }>(`/api/sales${qs(params as Record<string, string | number | undefined>)}`);
+  },
+  createSale(input: SaleInput) {
+    return request<SaleResult>('/api/sales', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  // Partial payments against a sale (multiple payments can add up to the invoice total).
+  salePayments(id: number | string) {
+    return request<{
+      sale: { id: string; invoice_number: string; invoice_total: number; paid_amount: number; balance: number; advance: number };
+      payments: SalePayment[];
+    }>(`/api/sales/${id}/payments`);
+  },
+  addSalePayment(
+    id: number | string,
+    body: { amount: number; payment_date?: string; payment_mode?: string; reference?: string; note?: string },
+  ) {
+    return request<{ payment: SalePayment; paid_amount: number; balance: number; status: string }>(
+      `/api/sales/${id}/payments`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  },
+  deleteSalePayment(id: number | string, paymentId: number | string) {
+    return request<{ paid_amount: number; balance: number; status: string }>(
+      `/api/sales/${id}/payments/${paymentId}`,
+      { method: 'DELETE' },
+    );
+  },
+
+  // Salaries
+  listSalaries(params?: {
+    period_year?: number | string;
+    period_month?: number | string;
+    operator_id?: number | string;
+    status?: SalaryStatus;
+    page?: number;
+    limit?: number;
+  }) {
+    return request<{ salaries: SalaryPeriod[]; pagination: PageMeta }>(`/api/salaries${qs(params as Record<string, string | number | undefined>)}`);
+  },
+  salarySummary(periodYear: number, periodMonth: number) {
+    return request<{ summary: SalarySummary }>(`/api/salaries/summary?period_year=${periodYear}&period_month=${periodMonth}`);
+  },
+  getSalary(id: number | string) {
+    return request<{ salary: SalaryPeriod; lines: SalaryLine[] }>(`/api/salaries/${id}`);
+  },
+  generateSalaries(periodYear: number, periodMonth: number) {
+    return request<SalaryGenerateResult>('/api/salaries/generate', {
+      method: 'POST',
+      body: JSON.stringify({ period_year: periodYear, period_month: periodMonth }),
+    });
+  },
+  generateSalariesForRange(periodType: 'weekly' | 'custom', startDate: string, endDate: string) {
+    return request<SalaryGenerateResult>('/api/salaries/generate', {
+      method: 'POST',
+      body: JSON.stringify({ period_type: periodType, period_start: startDate, period_end: endDate }),
+    });
+  },
+  updateSalary(id: number | string, patch: SalaryEditInput) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  },
+  recomputeSalary(id: number | string) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}/recompute`, { method: 'POST' });
+  },
+  approveSalary(id: number | string) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}/approve`, { method: 'POST' });
+  },
+  markSalaryPaid(id: number | string, body: SalaryMarkPaidInput) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}/mark-paid`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+  revertSalaryToDraft(id: number | string) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}/revert-to-draft`, { method: 'POST' });
+  },
+  deleteSalary(id: number | string) {
+    return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}`, { method: 'DELETE' });
+  },
 };
