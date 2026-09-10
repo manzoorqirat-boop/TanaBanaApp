@@ -47,6 +47,15 @@ interface MasterCrudScreenProps<TItem extends BaseItem, TInput> {
   toFormValues?: (item: TItem) => Record<string, string>;
   /** Convert form state (all strings) into the typed TInput before calling create/update. */
   fromFormValues: (values: Record<string, string>) => TInput;
+  /**
+   * When true, renders as a plain read-only list — no create button, no
+   * row tap, no edit/delete — regardless of which of createFn/updateFn/
+   * deactivateFn were passed in. For screens where only some roles can
+   * write (e.g. Equipment Master: superadmin edits, everyone else just
+   * views the shared catalog) rather than a screen that's read-only for
+   * every role.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -74,7 +83,15 @@ export function MasterCrudScreen<TItem extends BaseItem, TInput>({
   getBadge,
   toFormValues,
   fromFormValues,
+  readOnly = false,
 }: MasterCrudScreenProps<TItem, TInput>) {
+  // Collapse the three write callbacks to undefined when readOnly —
+  // every render path below already keys off "is this fn provided",
+  // so this alone removes the create button, row-tap-to-edit, and the
+  // delete/deactivate button without touching any of that logic.
+  createFn = readOnly ? undefined : createFn;
+  updateFn = readOnly ? undefined : updateFn;
+  deactivateFn = readOnly ? undefined : deactivateFn;
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
   const [items, setItems] = useState<TItem[]>([]);
   const [loading, setLoading] = useState(true);
