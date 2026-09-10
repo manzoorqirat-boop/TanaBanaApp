@@ -26,6 +26,7 @@ import PnlScreen from '../screens/app/PnlScreen';
 import CashFlowScreen from '../screens/app/CashFlowScreen';
 import ReceivablesScreen from '../screens/app/ReceivablesScreen';
 import AuditTrailScreen from '../screens/app/AuditTrailScreen';
+import SettingsScreen from '../screens/app/SettingsScreen';
 import { DrawerContent } from './DrawerContent';
 import { RoleGate } from './RoleGate';
 import { flattenNavScreens, type NavLeaf } from './navConfig';
@@ -70,6 +71,7 @@ const SCREEN_COMPONENTS: Record<string, React.ComponentType> = {
   CashFlow: CashFlowScreen,
   Receivables: ReceivablesScreen,
   AuditTrail: AuditTrailScreen,
+  Settings: SettingsScreen,
 };
 
 const screens = flattenNavScreens();
