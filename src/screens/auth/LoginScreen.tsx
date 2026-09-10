@@ -62,7 +62,7 @@ export default function LoginScreen() {
           <View style={styles.brandMark}>
             <Factory size={24} color={colors.accent} />
           </View>
-          <Text style={styles.brandName}>QMfg</Text>
+          <Text style={styles.brandName}>TanaBana</Text>
         </View>
 
         <View style={styles.card}>
