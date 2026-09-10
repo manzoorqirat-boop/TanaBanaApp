@@ -3,13 +3,13 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { Menu, AlertTriangle, TrendingUp, TrendingDown, Factory, Receipt, Banknote, Package, type LucideIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { api, type DashboardData } from '../../lib/api';
+import { currentLocale } from '../../i18n';
 import { Card } from '../../components/ui/Card';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { colors, spacing, fontSize, radius } from '../../theme/tokens';
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function inr(n: number): string {
   return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -17,20 +17,20 @@ function inr(n: number): string {
 function fmt(n: number): string {
   return Number(n || 0).toLocaleString('en-IN');
 }
-function greeting(): string {
-  const hour = new Date().getHours();
-  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-}
 
 /**
  * Ports pages/Dashboard.tsx — today's stats, this month's P&L at a
- * glance, cost composition, and top performers. Replaces the Phase 0
- * placeholder "welcome card" version. `api.getDashboard()` /
- * `DashboardData` didn't exist in this file at all until this pass —
- * a real gap found during a full audit against the web app, not just
- * a missing screen.
+ * glance, cost composition, and top performers. This is one of only
+ * three web pages with real i18n coverage (the other two: Login,
+ * Payables — everything else in the web app, including its own
+ * sidebar, is hardcoded English too). Retrofitted with real `t()`
+ * calls to match, rather than the hardcoded English every other RN
+ * screen currently uses — see the README's "i18n coverage" note for
+ * why this scope (not a 30-screen retrofit) is the actual parity
+ * target.
  */
 export default function DashboardScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -42,8 +42,9 @@ export default function DashboardScreen() {
     try {
       setData(await api.getDashboard());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load failed');
+      setError(e instanceof Error ? e.message : t('common.loadFailed'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -51,8 +52,13 @@ export default function DashboardScreen() {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
   const firstName = user?.name ? user.name.split(' ')[0] : '';
-  const greetingText = firstName ? `${greeting()}, ${firstName}.` : `${greeting()}.`;
+  const greetingText = firstName
+    ? t('dashboard.greetingNamed', { greeting: t(`dashboard.greeting.${timeOfDay}`), name: firstName })
+    : t('dashboard.greetingPlain', { greeting: t(`dashboard.greeting.${timeOfDay}`) });
+  const MONTHS = t('months', { returnObjects: true }) as string[];
 
   function go(screen: string) {
     navigation.navigate(screen as never);
@@ -64,13 +70,13 @@ export default function DashboardScreen() {
         <Pressable onPress={() => navigation.openDrawer()} hitSlop={12}>
           <Menu size={22} color={colors.textStrong} />
         </Pressable>
-        <Text style={styles.topBarTitle}>Dashboard</Text>
+        <Text style={styles.topBarTitle}>{t('nav.dashboard')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing[4] }}>
         <Text style={styles.greeting}>{greetingText}</Text>
-        <Text style={styles.subtitle}>Snapshot of today + this month.</Text>
+        <Text style={styles.subtitle}>{t('dashboard.subtitle')}</Text>
 
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -82,32 +88,34 @@ export default function DashboardScreen() {
           <>
             {/* TODAY */}
             <SectionHeader
-              title="Today"
-              subtitle={new Date(data.today.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+              title={t('dashboard.today')}
+              subtitle={new Date(data.today.date).toLocaleDateString(currentLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}
             />
             <View style={styles.tileGrid}>
               <StatTile
                 Icon={Factory}
-                label="Units produced"
+                label={t('dashboard.unitsProduced')}
                 value={fmt(data.today.units_produced)}
-                sub={`${data.today.runs_count} run${data.today.runs_count === 1 ? '' : 's'}`}
+                sub={t('dashboard.runs', { count: data.today.runs_count })}
                 color={colors.accentStrong}
                 onPress={() => go('Production')}
               />
               <StatTile
                 Icon={Receipt}
-                label="Sales"
+                label={t('dashboard.sales')}
                 value={inr(data.today.sales_amount)}
-                sub={`${data.today.sales_count} invoice${data.today.sales_count === 1 ? '' : 's'}`}
+                sub={t('dashboard.invoices', { count: data.today.sales_count })}
                 color={colors.success700}
                 onPress={() => go('Sales')}
               />
               {data.today.reorder_count > 0 ? (
                 <StatTile
                   Icon={AlertTriangle}
-                  label="Reorder alerts"
+                  label={t('dashboard.reorderAlerts')}
                   value={String(data.today.reorder_count)}
-                  sub={data.today.reorder_estimated_cost > 0 ? `${inr(data.today.reorder_estimated_cost)} est.` : 'set reorder levels'}
+                  sub={data.today.reorder_estimated_cost > 0
+                    ? t('dashboard.estCost', { amount: fmt(data.today.reorder_estimated_cost) })
+                    : t('dashboard.setReorderLevels')}
                   color={colors.warning700}
                   highlight
                   onPress={() => go('Reorder')}
@@ -116,9 +124,9 @@ export default function DashboardScreen() {
               {data.today.unpaid_salary_count > 0 ? (
                 <StatTile
                   Icon={Banknote}
-                  label="Salaries pending"
+                  label={t('dashboard.salariesPending')}
                   value={String(data.today.unpaid_salary_count)}
-                  sub={`${inr(data.today.unpaid_salary_total)} approved`}
+                  sub={t('dashboard.approvedAmount', { amount: fmt(data.today.unpaid_salary_total) })}
                   color={colors.warning700}
                   highlight
                   onPress={() => go('Salaries')}
@@ -128,21 +136,21 @@ export default function DashboardScreen() {
 
             {/* THIS MONTH */}
             <SectionHeader
-              title={`This month — ${MONTHS[data.month.period.month - 1]} ${data.month.period.year}`}
-              subtitle="Profit & loss at a glance"
+              title={t('dashboard.thisMonth', { month: MONTHS[data.month.period.month - 1], year: data.month.period.year })}
+              subtitle={t('dashboard.pnlGlance')}
             />
             <View style={styles.tileGrid}>
-              <HeadlineTile label="Revenue" value={data.month.revenue} sub={`${fmt(data.month.units_sold)} units sold`} color={colors.accentStrong} />
-              <HeadlineTile label="Total cost" value={data.month.cost_total} sub="RM + OH + Salary + Other" color={colors.warning700} />
+              <HeadlineTile label={t('dashboard.revenue')} value={data.month.revenue} sub={t('dashboard.unitsSoldWithCount', { total: fmt(data.month.units_sold) })} color={colors.accentStrong} />
+              <HeadlineTile label={t('dashboard.totalCost')} value={data.month.cost_total} sub={t('dashboard.costFormula')} color={colors.warning700} />
               <HeadlineTile
-                label="Gross profit" value={data.month.gross_profit}
-                sub={data.month.gross_margin_pct !== null ? `${data.month.gross_margin_pct}% margin` : 'no revenue'}
+                label={t('dashboard.grossProfit')} value={data.month.gross_profit}
+                sub={data.month.gross_margin_pct !== null ? t('dashboard.marginPct', { pct: data.month.gross_margin_pct }) : t('dashboard.noRevenue')}
                 color={data.month.gross_profit >= 0 ? colors.success700 : colors.warning700}
                 Icon={data.month.gross_profit >= 0 ? TrendingUp : TrendingDown}
               />
               <HeadlineTile
-                label="Net profit" value={data.month.net_profit}
-                sub={data.month.net_margin_pct !== null ? `${data.month.net_margin_pct}% margin` : 'no revenue'}
+                label={t('dashboard.netProfit')} value={data.month.net_profit}
+                sub={data.month.net_margin_pct !== null ? t('dashboard.marginPct', { pct: data.month.net_margin_pct }) : t('dashboard.noRevenue')}
                 color={data.month.net_profit >= 0 ? colors.success700 : colors.warning700}
                 Icon={data.month.net_profit >= 0 ? TrendingUp : TrendingDown}
                 big
@@ -150,50 +158,50 @@ export default function DashboardScreen() {
             </View>
 
             <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>Cost composition</Text>
-              <CostBar label="Raw materials" value={data.month.cost_composition.rm} total={data.month.cost_total} />
-              <CostBar label="Overhead" value={data.month.cost_composition.overhead} total={data.month.cost_total} />
-              <CostBar label="Salaries" value={data.month.cost_composition.salary} total={data.month.cost_total} />
-              <CostBar label="Other" value={data.month.cost_composition.other} total={data.month.cost_total} />
+              <Text style={styles.sectionTitle}>{t('dashboard.costComposition')}</Text>
+              <CostBar label={t('common.rawMaterials')} value={data.month.cost_composition.rm} total={data.month.cost_total} />
+              <CostBar label={t('dashboard.overhead')} value={data.month.cost_composition.overhead} total={data.month.cost_total} />
+              <CostBar label={t('dashboard.salaries')} value={data.month.cost_composition.salary} total={data.month.cost_total} />
+              <CostBar label={t('dashboard.other')} value={data.month.cost_composition.other} total={data.month.cost_total} />
               <Pressable onPress={() => go('Pnl')} hitSlop={8}>
-                <Text style={styles.openPnlLink}>Open full P&L →</Text>
+                <Text style={styles.openPnlLink}>{t('dashboard.openPnl')}</Text>
               </Pressable>
             </Card>
 
             <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>Top performers</Text>
+              <Text style={styles.sectionTitle}>{t('dashboard.topPerformers')}</Text>
               {data.month.top_product ? (
                 <View style={styles.performerRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.performerLabel}>TOP PRODUCT</Text>
+                    <Text style={styles.performerLabel}>{t('dashboard.topProduct').toUpperCase()}</Text>
                     <View style={styles.performerNameRow}>
                       <Package size={12} color={colors.textStrong} />
                       <Text style={styles.performerName} numberOfLines={1}>{data.month.top_product.name}</Text>
                     </View>
-                    <Text style={styles.performerSub}>{fmt(data.month.top_product.units)} units</Text>
+                    <Text style={styles.performerSub}>{t('dashboard.unitsCount', { total: fmt(data.month.top_product.units) })}</Text>
                   </View>
                   <Text style={styles.performerValue}>{inr(data.month.top_product.revenue)}</Text>
                 </View>
               ) : (
-                <Text style={styles.noData}>No sales this month</Text>
+                <Text style={styles.noData}>{t('dashboard.noSalesMonth')}</Text>
               )}
               {data.month.top_customer ? (
                 <View style={[styles.performerRow, { marginTop: spacing[3] }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.performerLabel}>TOP CUSTOMER</Text>
+                    <Text style={styles.performerLabel}>{t('dashboard.topCustomer').toUpperCase()}</Text>
                     <Text style={styles.performerName} numberOfLines={1}>{data.month.top_customer.name}</Text>
                   </View>
                   <Text style={styles.performerValue}>{inr(data.month.top_customer.revenue)}</Text>
                 </View>
               ) : (
-                <Text style={[styles.noData, { marginTop: spacing[3] }]}>No sales this month</Text>
+                <Text style={[styles.noData, { marginTop: spacing[3] }]}>{t('dashboard.noSalesMonth')}</Text>
               )}
             </Card>
 
             <Card style={{ ...styles.section, backgroundColor: colors.surface2 }}>
               <View style={styles.activityGrid}>
-                <ActivityStat label="Production" value={fmt(data.month.units_produced)} sub="units made" />
-                <ActivityStat label="Sales" value={fmt(data.month.units_sold)} sub="units sold" />
+                <ActivityStat label={t('dashboard.production')} value={fmt(data.month.units_produced)} sub={t('dashboard.unitsMade')} />
+                <ActivityStat label={t('dashboard.sales')} value={fmt(data.month.units_sold)} sub={t('dashboard.unitsSold')} />
               </View>
             </Card>
           </>
