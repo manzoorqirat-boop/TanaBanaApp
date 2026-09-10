@@ -14,7 +14,7 @@ import type { AuthStackParamList } from '../../navigation/AuthNavigator';
  * Ports pages/ResetPassword.tsx. The web version reads `?token=` from
  * the URL query string (the emailed reset link opens the SPA
  * directly). On mobile the same link needs to be a deep link
- * (qmfg://reset-password?token=...) configured in navigation/linking.ts
+ * (tanabana://reset-password?token=...) configured in navigation/linking.ts
  * — React Navigation then hands the token in here as a route param
  * instead of a query string.
  */
@@ -62,7 +62,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.brandMark}>
           <Factory size={22} color={colors.accent} />
         </View>
-        <Text style={styles.brandName}>QMfg</Text>
+        <Text style={styles.brandName}>TanaBana</Text>
       </View>
 
       <View style={styles.card}>
