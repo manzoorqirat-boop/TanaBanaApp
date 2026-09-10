@@ -953,6 +953,129 @@ export interface SalaryMarkPaidInput {
   payment_reference?: string;
 }
 
+// ─── Phase 3: GST Report ────────────────────────────────────────────────
+export interface GstSummary {
+  range: { from_date: string; to_date: string };
+  output: {
+    invoice_count: number;
+    taxable_value: number;
+    cgst: number; sgst: number; igst: number;
+    total_tax: number; invoice_total: number;
+  };
+  input: {
+    receipt_count: number;
+    taxable_value: number;
+    cgst: number; sgst: number; igst: number;
+    total_tax: number; gross_total: number;
+  };
+  net: {
+    amount: number;
+    status: 'payable' | 'credit_carried' | 'nil';
+    inverted_duty: boolean;
+  };
+  output_by_rate: { gst_rate: number; taxable_value: number; tax: number }[];
+}
+
+// ─── Phase 3: Cash-flow report (cash-basis) ────────────────────────────
+export interface CashFlowReport {
+  range: { from_date: string; to_date: string };
+  cash_in: { total: number; items: { label: string; amount: number; count: number }[] };
+  cash_out: { total: number; items: { label: string; amount: number; count: number }[] };
+  net: { amount: number; status: 'surplus' | 'deficit' | 'nil' };
+}
+
+// ─── Phase 3: P&L ───────────────────────────────────────────────────────
+export type PnlPeriodMode = 'month' | 'ytd' | 'custom';
+export interface PnlPeriodParams {
+  mode: PnlPeriodMode;
+  period_year?: number;
+  period_month?: number;
+  from_date?: string;
+  to_date?: string;
+  [key: string]: string | number | undefined;
+}
+export interface PnlSummary {
+  period: { mode: PnlPeriodMode; start: string; end: string; label: string; year: number | null; month: number | null };
+  revenue: { total: number; sales_count: number; units_sold: number };
+  costs: { rm: number; overhead: number; salary: number; other: number; total: number };
+  profit: { gross: number; net: number; gross_margin_pct: number | null; net_margin_pct: number | null };
+  activity: {
+    sales_count: number;
+    units_sold: number;
+    production_run_count: number;
+    units_produced: number;
+    salary_count: number;
+    salary_paid_count: number;
+    salary_approved_count: number;
+    expense_count: number;
+  };
+}
+export interface PnlProductRow {
+  fg_id: string;
+  fg_code_snapshot: string;
+  fg_name_snapshot: string;
+  units_sold: string;
+  revenue: string;
+  sale_count: number;
+}
+export interface PnlCustomerRow {
+  customer_id: string | null;
+  customer_name_snapshot: string;
+  revenue: string;
+  sale_count: number;
+}
+export interface PnlExpenseRow {
+  category: string;
+  total: string;
+  count: number;
+}
+
+// ─── Phase 3: Receivables / payment follow-up ──────────────────────────
+export interface ReceivableItem {
+  id: string;
+  invoice_number: string;
+  sale_date: string;
+  customer_id: string | null;
+  customer_name: string;
+  amount: number;
+  invoice_total: number;
+  paid_amount: number;
+  balance: number;
+  payment_terms_days: number | null;
+  due_date: string;
+  days_overdue: number;
+  is_overdue: boolean;
+  last_followed_up_at: string | null;
+  follow_up_count: number;
+}
+export interface ReceivablesSummary {
+  total_unpaid: number;
+  total_outstanding: number;
+  overdue_count: number;
+  overdue_amount: number;
+}
+export interface FollowUpLog {
+  id: string;
+  method: string;
+  note: string | null;
+  promised_date: string | null;
+  followed_up_at: string;
+  by_name: string | null;
+}
+
+// ─── Phase 3: Audit logs ────────────────────────────────────────────────
+export interface AuditLog {
+  id: string;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+  user_name: string | null;
+  user_email: string | null;
+}
+
 // ─── API surface (Phase 0: Auth + Companies only) ────────────────────
 export const api = {
   // Auth
@@ -1474,5 +1597,71 @@ export const api = {
   },
   deleteSalary(id: number | string) {
     return request<{ salary: SalaryPeriod }>(`/api/salaries/${id}`, { method: 'DELETE' });
+  },
+
+  // GST
+  gstSummary(params?: { from_date?: string; to_date?: string }) {
+    return request<GstSummary>(`/api/gst/summary${qs(params)}`);
+  },
+  // Fetches the GSTR-1 filing JSON for a period (MMYYYY). Unlike the
+  // web version (which triggers a browser download via a Blob/anchor
+  // click), this just returns the parsed payload — the screen writes
+  // it to a file and opens the share sheet via expo-file-system /
+  // expo-sharing, since RN has no browser download equivalent.
+  async downloadGstr1(period: string): Promise<{ filename: string; data: unknown }> {
+    const token = await getToken();
+    const activeCompanyId = await getActiveCompanyId();
+    const res = await fetch(`${BASE_URL}/api/gst/gstr1?period=${period}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(activeCompanyId ? { 'x-company-id': activeCompanyId } : {}),
+      },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(body?.error?.message || body?.message || 'GSTR-1 export failed');
+    }
+    return { filename: `GSTR1_${period}.json`, data: body?.data ?? body };
+  },
+
+  // Cash-flow report
+  cashFlow(params?: { from_date?: string; to_date?: string }) {
+    return request<CashFlowReport>(`/api/cashflow${qs(params)}`);
+  },
+
+  // P&L
+  pnlSummary(params: PnlPeriodParams) {
+    return request<PnlSummary>(`/api/pnl/summary${qs(params)}`);
+  },
+  pnlByProduct(params: PnlPeriodParams) {
+    return request<{ items: PnlProductRow[] }>(`/api/pnl/by-product${qs(params)}`);
+  },
+  pnlByCustomer(params: PnlPeriodParams) {
+    return request<{ items: PnlCustomerRow[] }>(`/api/pnl/by-customer${qs(params)}`);
+  },
+  pnlExpenseBreakdown(params: PnlPeriodParams) {
+    return request<{ items: PnlExpenseRow[] }>(`/api/pnl/expense-breakdown${qs(params)}`);
+  },
+
+  // Receivables / payment follow-up
+  receivablesSummary() {
+    return request<{ summary: ReceivablesSummary }>('/api/receivables/summary');
+  },
+  receivablesList(filter: 'all' | 'overdue' | 'due_soon' = 'all') {
+    return request<{ items: ReceivableItem[] }>(`/api/receivables?filter=${filter}`);
+  },
+  followUpLogs(saleId: number | string) {
+    return request<{ logs: FollowUpLog[] }>(`/api/receivables/${saleId}/logs`);
+  },
+  addFollowUp(saleId: number | string, body: { method: string; note?: string; promised_date?: string }) {
+    return request<{ log: FollowUpLog }>(`/api/receivables/${saleId}/logs`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  // Audit logs
+  listAuditLogs(params?: { q?: string; entity_type?: string; action?: string; page?: number; limit?: number }) {
+    return request<{ logs: AuditLog[]; pagination: PageMeta }>(`/api/audit-logs${qs(params)}`);
   },
 };
