@@ -14,7 +14,7 @@ import { colors, spacing, fontSize } from '../../theme/tokens';
  * its own right; this is deliberately not that.
  */
 export default function DashboardScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
 
   return (
