@@ -1,15 +1,17 @@
-# QMfg Mobile — Phase 0 through Phase 2b complete
+# QMfg Mobile — Phase 0 through Phase 3 complete
 
 React Native/Expo port of QMfg-Frontend. Delivered so far: **Phase 0**
 (auth, navigation shell, theme tokens, reusable primitives); **Phase
 1** — 10 simple CRUD/report pages (Units, Machines, Operators,
 Suppliers, Customers, Equipment Master, Overheads, Job Workers, Stock
 Alerts, Tenants); **Phase 2a** — Raw Materials, Finished Products,
-Reorder, Other Expenses; and **Phase 2b** — BOM/BomEdit, Production,
-**Receipts, Payables, Sales, and Salaries/SalaryDetail**. Every page
-in the migration plan through Phase 2 is now built. Phase 3 (reports)
-and Phase 4 (polish/Android build) are next — see "Continuing into
-Phase 3" below.
+Reorder, Other Expenses; **Phase 2b** — BOM/BomEdit, Production,
+Receipts, Payables, Sales, and Salaries/SalaryDetail; and **Phase 3**
+— GST Report, P&L, Cash Flow, Payment Follow-up (Receivables), and
+Audit Trail. Every page in the migration plan is now built. Only
+Phase 4 (RoleGate guards, LanguageToggle/HeaderSearch polish,
+offline/loading/error sweep, EAS Android build) remains — see
+"Continuing into Phase 4" at the end of this file.
 
 ## What's here
 
@@ -21,8 +23,8 @@ src/
   theme/tokens.ts              ported from index.css :root variables
   lib/
     storage.ts                 SecureStore (tokens) + AsyncStorage (prefs)
-    api.ts                     ported request()/auth/companies + all
-                                Phase 1 domain endpoints
+    api.ts                     ported request()/auth/companies + every
+                                domain endpoint through Phase 3
   context/AuthContext.tsx      ported, adapted for async storage
   i18n/                        react-i18next, en/hi locales copied as-is
   navigation/
@@ -37,7 +39,10 @@ src/
                                  ListRow, EmptyState, ErrorBanner,
                                  LanguageToggle, GstRatePicker (Phase 2b —
                                  standard-slab dropdown + "Other…", used
-                                 by Receipts' create/edit forms)
+                                 by Receipts' create/edit forms),
+                                 ReportTable (Phase 3 — the shared
+                                 card-per-row primitive every report
+                                 screen below is built on)
     crud/
       MasterCrudScreen.tsx      generic list+search+create/edit screen
                                  driving 8 of the 10 Phase 1 pages
@@ -47,7 +52,8 @@ src/
     auth/                      Login, ForgotPassword, ResetPassword
     app/
       DashboardScreen.tsx      Phase 0's one real authenticated screen
-      PlaceholderScreen.tsx    shown for every not-yet-built nav item
+      PlaceholderScreen.tsx    fallback for any screen not yet in
+                                 SCREEN_COMPONENTS (none currently used)
       UnitsScreen.tsx          ┐
       MachinesScreen.tsx       │
       OperatorsScreen.tsx      │
@@ -55,7 +61,7 @@ src/
       CustomersScreen.tsx      │ ~30-60 lines each (field config + api calls)
       EquipmentMasterScreen.tsx│
       OverheadsScreen.tsx      │
-      JobWorkScreen.tsx        ┘ (master list only — see note below)
+      JobWorkScreen.tsx        ┘ (master list only — see scoping note below)
       StockAlertsScreen.tsx    bespoke — read-only report, two tabs
       TenantsScreen.tsx        bespoke — impersonation-based edit flow
       BomScreen.tsx / BomEditScreen.tsx      Phase 2b — recipe editor
@@ -68,111 +74,86 @@ src/
       SalariesScreen.tsx /     Phase 2b — month picker, generate, summary
       SalaryDetailScreen.tsx    tiles; detail rendered in-place (adjust/
                                  approve/mark-paid/revert/delete)
+      GstReportScreen.tsx      Phase 3 — the spike page (see below);
+                                 net position, output/input cards,
+                                 GSTR-1 JSON export via share sheet
+      PnlScreen.tsx            Phase 3 — month/YTD/custom modes,
+                                 headline tiles, cost breakdown w/
+                                 progress bars, by-product/by-customer/
+                                 by-expense ReportTables
+      CashFlowScreen.tsx       Phase 3 — cash-basis in/out breakdown
+      ReceivablesScreen.tsx    Phase 3 — "Payment Follow-up" in the
+                                 drawer; overdue/due-soon list + a
+                                 follow-up log modal per invoice
+      AuditTrailScreen.tsx     Phase 3 — searchable append-only log
 ```
 
-## Phase 1 scoping notes (read before building against these)
+## Phase 3 — GST Report, P&L, Cash Flow, Receivables, Audit Trail
 
-- **Job Workers**: only the master list (create/edit job worker
-  profiles) is built. The web app's "Activity" tab on the same page —
-  dispatching raw material to a job worker, recording finished-goods
-  receipts back, running balances/payables — is a transactional
-  workflow with its own state machine. That belongs with
-  Production/Receipts in **Phase 2**, not here.
-- **Overheads**: every overhead created here is "General" (`fg_id:
-  null`). The web app also supports linking one overhead to a specific
-  Finished Product — that selector needs the Finished Products list,
-  which ships in Phase 2. Add an `fg_id` select field to
-  `OverheadsScreen.tsx` once that exists.
-- **Stock Alerts** and **Tenants** don't use `MasterCrudScreen` — the
-  former is read-only (no create/edit at all), the latter's edit flow
-  uses a company-impersonation trick (`x-company-id` header swap) that
-  doesn't fit the generic id-based update pattern.
+The migration plan called for deciding a shared `<ReportTable>`
+primitive once (RN has no `<table>` equivalent) and doing a throwaway
+spike on GST Report first, since it's the widest report. That's what
+happened — with one finding worth flagging: **every Phase 3 table
+turned out to be narrow** (label + 1-3 numeric columns: GST rate/
+taxable/tax; product/units/sales/revenue; category/count/total), not
+the wide multi-column grid the plan worried about. So the primitive
+that shipped, `components/ui/ReportTable.tsx`, is a card-per-row list
+— bold label (+ optional sublabel) on the left, one emphasized "hero"
+figure on the right, remaining numeric columns as small muted chips
+underneath, plus an optional totals footer. No horizontally-scrollable
+grid variant was needed or built; if a genuinely wide report shows up
+later, that's a deliberately separate primitive rather than bolted
+onto this one.
 
-## The MasterCrudScreen pattern
+- **`GstReportScreen.tsx`** — ports `pages/GstReport.tsx`: date-range
+  picker, a GSTR-1 JSON export card, the net-GST-position headline
+  (colored left border, inverted-duty note), output-vs-input GST
+  breakdown cards, and an output-by-rate `ReportTable`. The GSTR-1
+  export is the one place Phase 3 needed new capability beyond
+  ReportTable: the web version triggers a browser Blob-download; RN
+  has no equivalent, so `api.downloadGstr1()` now returns the parsed
+  JSON payload instead of triggering a DOM download, and the screen
+  writes it to `FileSystem.cacheDirectory` and opens the native share
+  sheet via `expo-sharing`. Two new dependencies were added to
+  `package.json` for this: `expo-file-system` and `expo-sharing`
+  (both at the SDK 52-compatible versions already used elsewhere in
+  this project).
+- **`PnlScreen.tsx`** — ports `pages/Pnl.tsx`: month/YTD/custom period
+  modes (with the month/year arrow-navigators the web version has),
+  headline tiles (revenue/cost/gross/net profit with margin %), a cost
+  breakdown with proportional progress bars, an activity stats grid,
+  a no-revenue warning, and three `ReportTable`s (by product, by
+  customer, other-expense breakdown).
+- **`CashFlowScreen.tsx`** — ports `pages/CashFlow.tsx`: date-range
+  picker, net cash movement headline, and Cash In / Cash Out cards
+  each rendered as a `ReportTable` with a totals footer.
+- **`ReceivablesScreen.tsx`** — ports `pages/Receivables.tsx` (nav
+  label "Payment Follow-up"): summary tiles (outstanding/overdue),
+  an overdue/due-soon/all filter, and a list of unpaid sales — rows
+  stayed bespoke rather than `ReportTable` since each needs an overdue
+  badge and a follow-up action button, not just a label+figure. Each
+  row opens a follow-up modal (method/note/promised-date form +
+  history list), backed by the same `receivablesList`/
+  `receivablesSummary`/`followUpLogs`/`addFollowUp` endpoints as web.
+- **`AuditTrailScreen.tsx`** — ports `pages/AuditTrail.tsx`: the cheap
+  one per the plan, just a searchable append-only list (when/user/
+  action/entity/details), no `ReportTable` needed.
 
-8 of the 10 pages are ~30-60 line files that just configure
-`MasterCrudScreen` with:
-- a `FieldConfig[]` describing the form (label, type, options)
-- the matching `api.list*`/`create*`/`update*`/`deactivate*` functions
-- how to render each row's title/subtitle/badge
+`api.ts` picked up `GstSummary`, `CashFlowReport`, `PnlSummary`/
+`PnlProductRow`/`PnlCustomerRow`/`PnlExpenseRow`/`PnlPeriodMode`/
+`PnlPeriodParams`, `ReceivableItem`/`ReceivablesSummary`/
+`FollowUpLog`, and `AuditLog` types, plus `gstSummary`/`downloadGstr1`/
+`cashFlow`/`pnlSummary`/`pnlByProduct`/`pnlByCustomer`/
+`pnlExpenseBreakdown`/`receivablesSummary`/`receivablesList`/
+`followUpLogs`/`addFollowUp`/`listAuditLogs`.
 
-When you build Phase 2's simpler forms-with-logic pages, check
-whether they fit this same shape before hand-rolling a new screen —
-several (Raw Materials, Finished Products) likely do, with an extra
-field or two.
+All five screens are wired up: `navConfig.ts` has `implemented: true`
+on `GstReport`/`Pnl`/`CashFlow`/`Receivables`/`AuditTrail`, and
+`AppNavigator.tsx` registers all five in `SCREEN_COMPONENTS`.
 
-## Setup
+## Phase 2b — BOM, Production, Receipts, Payables, Sales, Salaries
 
-You don't have local CLI access, so the practical path is: push this
-to a GitHub repo, then run builds through **EAS's cloud build service**
-(no local Android SDK needed) — either via the Expo website's GitHub
-integration, or from Codespaces/any machine with `npx` for the
-one-time `eas build` trigger.
-
-1. Create an Expo account + project: https://expo.dev
-2. Set your API URL as a secret per environment (Expo dashboard →
-   your project → Environment variables), matching the `EXPO_PUBLIC_API_URL`
-   placeholders in `eas.json`. Point `preview` at whatever
-   Railway URL you're using for QMfg's backend right now.
-3. Push this repo, then trigger a build:
-   ```
-   eas build --platform android --profile preview
-   ```
-   (via Expo's website "Build" tab if you don't have a shell handy —
-   it can build directly from a connected GitHub repo.)
-4. Install the resulting `.apk` on a device via the link EAS gives you,
-   or use **Expo Go** during active development for faster iteration
-   (`npx expo start`, scan the QR code — works from Codespaces too, as
-   long as your phone can reach the tunnel URL).
-
-## What to check once it's building
-
-- Login screen loads, hits your real `/api/auth/login`, and lands on
-  the Dashboard drawer.
-- Every Phase 1 item in the drawer opens a real screen: list loads,
-  search works, tapping "+" opens a create form, tapping a row opens
-  an edit form with the toggle-able Active switch.
-- Tenants: create flow (company + owner), and editing an existing
-  tenant — confirm the active-company header gets restored afterward
-  (check that a subsequent screen still shows your own data, not the
-  tenant's).
-- Stock Alerts: both tabs load; badges color-code by urgency.
-- Everything else in the drawer still opens `PlaceholderScreen` —
-  expected, that's exactly where Phase 2 starts.
-
-## Continuing into Phase 2
-
-For each of the transactional pages (Raw Materials, Receipts,
-Payables, Finished Products, Production, Reorder, Sales, BOM, Other
-Expenses, Salaries):
-
-1. Copy that domain's types + `api.*` methods from
-   `QMfg-Frontend/src/lib/api.ts` into `src/lib/api.ts` here.
-2. Check whether `MasterCrudScreen` fits (simple list + form) before
-   building a bespoke screen — Raw Materials and Finished Products
-   likely do; Production/Sales (multi-line items, calculated totals)
-   probably don't and need their own screen, same as StockAlerts/
-   Tenants did in Phase 1.
-3. In `AppNavigator.tsx`, add the screen to `SCREEN_COMPONENTS` and
-   flip `implemented: true` on its `navConfig.ts` entry.
-
----
-
-## Phase 2a (this update)
-
-Added 4 more pages: **Raw Materials**, **Finished Products** (both on
-`MasterCrudScreen`, with a live Units-fed dropdown instead of free
-text for the unit field), **Reorder** (bespoke — dashboard variant of
-Stock Alerts' RM tab, adds a summary card), and **Other Expenses**
-(`MasterCrudScreen`, but a transaction log rather than master data —
-no Active toggle, a real "Delete expense" button instead, via a new
-`deactivateFn`-powered delete action added to `MasterCrudScreen`
-itself, so all earlier Phase 1 screens picked up a working
-deactivate/delete button too).
-
-## Phase 2b (in progress)
-
-**BOM / BomEdit — shipped.** Two new files:
+**BOM / BomEdit.** Two files:
 
 - `screens/app/BomScreen.tsx` — ports `pages/Bom.tsx`: one row per
   finished product, "with active BOM" / "need BOM setup" summary
@@ -185,15 +166,14 @@ deactivate/delete button too).
   "save as draft" vs "save & activate" toggle (activating archives
   the prior active version, same as the web app).
 
-Rendering note: unlike Receipts/Payables/etc below, BOM's editor is
-rendered *in place of* `BomScreen`'s list (a local `editorFgId` state
-flip), not as a `Modal` like `MasterCrudScreen` uses — it's too tall
-a form for a sheet-style modal to feel right, so it gets its own
-scrollable screen with a back chevron instead. `AppNavigator` and
-`navConfig.ts` both point `Bom` at `BomScreen` now
-(`implemented: true`). `api.ts` picked up the full BOM section
-(types + `listBom`/`bomVersionsForFg`/`bomActiveForFg`/
-`getBomVersion`/`createBom`/`activateBom`/`archiveBom`).
+Rendering note: BOM's editor is rendered *in place of* `BomScreen`'s
+list (a local `editorFgId` state flip), not as a `Modal` like
+`MasterCrudScreen` uses — it's too tall a form for a sheet-style modal
+to feel right, so it gets its own scrollable screen with a back
+chevron instead. `SalariesScreen`/`SalaryDetailScreen` reuse the same
+pattern below. `api.ts` picked up the full BOM section (types +
+`listBom`/`bomVersionsForFg`/`bomActiveForFg`/`getBomVersion`/
+`createBom`/`activateBom`/`archiveBom`).
 
 Not yet wired: `activateBom`/`archiveBom` exist on `api` but have no
 UI trigger — the web app doesn't expose them as direct user actions
@@ -202,7 +182,7 @@ otherwise managed by `createBom`'s `activate_now` flag), so this
 matches parity. Add a manual activate/archive action later only if a
 real need for it shows up.
 
-**Production — shipped.** One new file:
+**Production.** One file:
 
 - `screens/app/ProductionScreen.tsx` — ports `pages/Production.tsx`:
   a paginated, searchable log of production runs (run number,
@@ -224,19 +204,18 @@ Two things worth flagging:
   `<input type="date">` is free — pulling in
   `@react-native-community/datetimepicker` is a reasonable follow-up
   if manual date entry proves annoying on a real device, but wasn't
-  worth the extra dependency for a first pass.
+  worth the extra dependency for a first pass. The same plain-text
+  date approach is used everywhere else a date is entered (Receipts,
+  Sales, Salaries, and all of Phase 3's date-range pickers), for
+  consistency.
 
 `api.ts` picked up `ProductionRun`/`ProductionRunInput`/
 `ProductionRunResult` types and `listProductionRuns`/
-`createProductionRun`. `Production` is `implemented: true` in
-`navConfig.ts` and registered in `AppNavigator.tsx`.
+`createProductionRun`.
 
-## Phase 2b — now complete: Receipts, Payables, Sales, Salaries
-
-The remaining transactional pages all shipped as bespoke screens
-(none fit `MasterCrudScreen` — each has calculated totals, filters, or
-a multi-step flow `MasterCrudScreen`'s generic list+modal shape can't
-express):
+**Receipts, Payables, Sales, Salaries.** None of these fit
+`MasterCrudScreen` — each has calculated totals, filters, or a
+multi-step flow the generic list+modal shape can't express:
 
 - **`screens/app/ReceiptsScreen.tsx`** — ports `pages/Receipts.tsx`:
   paginated/searchable/status-filterable list of RM receipts; create
@@ -278,18 +257,18 @@ express):
   bottom sheet (monthly / weekly with auto-filled 7-day end date /
   custom range, max 62 days). Tapping a row flips to
   `SalaryDetailScreen` **rendered in place** — the same
-  local-state-flip pattern `BomScreen` uses for `BomEditScreen`,
-  rather than a separate nav route — showing the pay-basis snapshot,
-  full computation breakdown (pieces/fixed/bonus/deductions/advance
-  → gross → net), the piece-rate production-run lines table, and
-  status-gated actions (draft: recompute/adjust/approve/delete;
-  approved: revert-to-draft/mark-paid; paid: read-only payment info).
-  `api.ts` picked up `SalaryPeriod`/`SalaryLine`/`SalarySummary`/
-  `SalaryGenerateResult`/`SalaryEditInput`/`SalaryMarkPaidInput` and
-  the full `listSalaries`/`salarySummary`/`getSalary`/
-  `generateSalaries`/`generateSalariesForRange`/`updateSalary`/
-  `recomputeSalary`/`approveSalary`/`markSalaryPaid`/
-  `revertSalaryToDraft`/`deleteSalary` set.
+  local-state-flip pattern `BomScreen` uses for `BomEditScreen` —
+  showing the pay-basis snapshot, full computation breakdown
+  (pieces/fixed/bonus/deductions/advance → gross → net), the
+  piece-rate production-run lines table, and status-gated actions
+  (draft: recompute/adjust/approve/delete; approved: revert-to-draft/
+  mark-paid; paid: read-only payment info). `api.ts` picked up
+  `SalaryPeriod`/`SalaryLine`/`SalarySummary`/`SalaryGenerateResult`/
+  `SalaryEditInput`/`SalaryMarkPaidInput` and the full
+  `listSalaries`/`salarySummary`/`getSalary`/`generateSalaries`/
+  `generateSalariesForRange`/`updateSalary`/`recomputeSalary`/
+  `approveSalary`/`markSalaryPaid`/`revertSalaryToDraft`/
+  `deleteSalary` set.
 
 One intentional gap: the web app's **"Print slip"** button on
 `SalaryDetail` opens a new browser window and calls `window.print()`
@@ -298,37 +277,124 @@ shareable salary slip turns out to matter, the cleanest path is
 generating a PDF server-side (or with `expo-print`) and using RN's
 `Share` API, rather than trying to fake a print dialog.
 
-All four screens are wired up: `navConfig.ts` has `implemented: true`
-on `Receipts`/`Payables`/`Sales`/`Salaries`, and `AppNavigator.tsx`
-registers all four in `SCREEN_COMPONENTS`. The whole project
-type-checks clean (`npx tsc --noEmit`) other than one pre-existing,
-unrelated error in `BomEditScreen.tsx`.
+All six Phase 2b screens are wired up: `navConfig.ts` has
+`implemented: true` on `Bom`/`Production`/`Receipts`/`Payables`/
+`Sales`/`Salaries`, and `AppNavigator.tsx` registers all six in
+`SCREEN_COMPONENTS`.
 
-## Continuing into Phase 3 (reports)
+## Phase 2a
 
-Every page through Phase 2 is now built. What's left, per the
-migration plan:
+Added 4 pages: **Raw Materials**, **Finished Products** (both on
+`MasterCrudScreen`, with a live Units-fed dropdown instead of free
+text for the unit field), **Reorder** (bespoke — dashboard variant of
+Stock Alerts' RM tab, adds a summary card), and **Other Expenses**
+(`MasterCrudScreen`, but a transaction log rather than master data —
+no Active toggle, a real "Delete expense" button instead, via a new
+`deactivateFn`-powered delete action added to `MasterCrudScreen`
+itself, so all earlier Phase 1 screens picked up a working
+deactivate/delete button too).
 
-**Phase 3 — GST Report, P&L, Cash Flow, Receivables, Payables report
-view, Audit Trail.** The hard part: there's no RN `<table>`
-equivalent, so before touching any individual report, decide and
-build one shared `<ReportTable>` primitive (in `components/ui/`) —
-card-per-row for portrait phone use vs. a horizontally-scrollable grid
-for wide reports (GST/P&L likely need the grid). Do a throwaway spike
-against **GST Report** specifically first, since it's the widest
-report and will stress-test whichever layout you pick before you
-commit to it across five more screens. Add a shared date-range/filter
-control (bottom sheet or header component) alongside it — every
-Phase 3 page needs one. Audit Trail is the cheap one in this bucket —
-it's just a long filterable list, not a financial grid.
+## Phase 1 scoping notes (read before building against these)
 
-**Phase 4 — RoleGate route guards, LanguageToggle/HeaderSearch ports,
-offline/loading/error sweep, EAS Android build.** Doesn't depend on
-Phase 3 and could start in parallel if you want an installable build
-in testers' hands before the reports are finished. `RoleGate` becomes
-a navigation-level guard (redirect before a screen mounts rather than
-after); `LanguageToggle.tsx` already has a `components/ui/` port from
-Phase 0 wired into the drawer — confirm it's reachable from every
-screen, not just the drawer footer; `HeaderSearch.tsx`'s port depends
-on how deep the web version's search logic actually runs, so budget
-time to check before assuming it's a trivial copy.
+- **Job Workers**: only the master list (create/edit job worker
+  profiles) is built. The web app's "Activity" tab on the same page —
+  dispatching raw material to a job worker, recording finished-goods
+  receipts back, running balances/payables — is a transactional
+  workflow with its own state machine, distinct from the master-data
+  list here. There's no current plan to port it; it wasn't in the
+  original migration plan's page list.
+- **Overheads**: every overhead created here is "General" (`fg_id:
+  null`). The web app also supports linking one overhead to a specific
+  Finished Product — that selector needs the Finished Products list
+  (now shipped in Phase 2a). Add an `fg_id` select field to
+  `OverheadsScreen.tsx` if per-product overhead linking turns out to
+  matter.
+- **Stock Alerts** and **Tenants** don't use `MasterCrudScreen` — the
+  former is read-only (no create/edit at all), the latter's edit flow
+  uses a company-impersonation trick (`x-company-id` header swap) that
+  doesn't fit the generic id-based update pattern.
+
+## The MasterCrudScreen pattern
+
+8 of the 10 Phase 1 pages are ~30-60 line files that just configure
+`MasterCrudScreen` with:
+- a `FieldConfig[]` describing the form (label, type, options)
+- the matching `api.list*`/`create*`/`update*`/`deactivate*` functions
+- how to render each row's title/subtitle/badge
+
+Raw Materials and Finished Products (Phase 2a) also fit this shape,
+with an extra field or two. Everything from Production onward
+(calculated totals, multi-step flows, filters) needed a bespoke
+screen instead — see the Phase 2b and Phase 3 sections above for what
+each one does differently and why.
+
+## Setup
+
+You don't have local CLI access, so the practical path is: push this
+to a GitHub repo, then run builds through **EAS's cloud build service**
+(no local Android SDK needed) — either via the Expo website's GitHub
+integration, or from Codespaces/any machine with `npx` for the
+one-time `eas build` trigger.
+
+1. Create an Expo account + project: https://expo.dev
+2. Set your API URL as a secret per environment (Expo dashboard →
+   your project → Environment variables), matching the `EXPO_PUBLIC_API_URL`
+   placeholders in `eas.json`. Point `preview` at whatever
+   Railway URL you're using for QMfg's backend right now.
+3. Push this repo, then trigger a build:
+   ```
+   eas build --platform android --profile preview
+   ```
+   (via Expo's website "Build" tab if you don't have a shell handy —
+   it can build directly from a connected GitHub repo.)
+4. Install the resulting `.apk` on a device via the link EAS gives you,
+   or use **Expo Go** during active development for faster iteration
+   (`npx expo start`, scan the QR code — works from Codespaces too, as
+   long as your phone can reach the tunnel URL).
+
+## What to check once it's building
+
+- Login screen loads, hits your real `/api/auth/login`, and lands on
+  the Dashboard drawer.
+- Every item in the drawer opens a real screen now — nothing should
+  fall through to `PlaceholderScreen`. If something does, it means a
+  `navConfig.ts` entry got added without a matching `AppNavigator.tsx`
+  registration; check `SCREEN_COMPONENTS`.
+- Tenants: create flow (company + owner), and editing an existing
+  tenant — confirm the active-company header gets restored afterward
+  (check that a subsequent screen still shows your own data, not the
+  tenant's).
+- Stock Alerts: both tabs load; badges color-code by urgency.
+- GST Report's GSTR-1 export: test the share sheet on a real device,
+  not just Expo Go in a simulator — `expo-sharing`'s behavior can
+  differ there.
+- Salaries → tap a row → confirm `SalaryDetailScreen` renders in place
+  (no navigation flicker) and the back chevron returns to a refreshed
+  list, same check for BOM's editor.
+
+## Continuing into Phase 4 (last phase)
+
+Everything in the migration plan's page list is now built. What's
+left is polish, not new pages:
+
+- **RoleGate route guards** — port as a navigation-level guard that
+  redirects unauthenticated/unauthorized users before a screen mounts,
+  rather than after (the web version's after-the-fact redirect doesn't
+  translate directly to RN navigation).
+- **LanguageToggle** already has a Phase 0 port in `components/ui/`
+  wired into the drawer — confirm it's reachable from screens that
+  aren't the drawer footer, not just check it exists.
+- **HeaderSearch** — the web version's search logic depth needs
+  checking before assuming this is a trivial copy; budget real time
+  for it.
+- **Offline/loading/error sweep** — every screen already has its own
+  loading/error state (established pattern throughout), but a
+  deliberate pass across all of them for offline behavior (no network,
+  slow network, stale cached lists) hasn't happened yet.
+- **App icon, splash screen, `app.json`/`eas.json` config**, then an
+  **EAS build → internal testing track → sign for Play Store**.
+
+The practical next step is the polish sweep above, then a real EAS
+build on a device to catch anything that only shows up outside Expo
+Go (the GSTR-1 share-sheet flow in particular is worth testing on a
+real device, since sharing behavior can differ from the simulator).
