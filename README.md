@@ -1,4 +1,4 @@
-# TanaBana Mobile — all four phases complete
+# TanaBana Mobile — all four phases complete, plus a post-launch audit pass
 
 React Native/Expo port of QMfg-Frontend. **Phase 0** (auth, navigation
 shell, theme tokens, reusable primitives); **Phase 1** — 10 simple
@@ -6,12 +6,15 @@ CRUD/report pages; **Phase 2a** — Raw Materials, Finished Products,
 Reorder, Other Expenses; **Phase 2b** — BOM/BomEdit, Production,
 Receipts, Payables, Sales, Salaries/SalaryDetail; **Phase 3** — GST
 Report, P&L, Cash Flow, Payment Follow-up (Receivables), Audit Trail;
-and **Phase 4** — RoleGate navigation guard, offline banner, app
-icon/splash assets, and a couple of scoping corrections (see below).
-Every page in the original migration plan is built and wired up. The
-whole project type-checks with zero errors and zero unused
-locals/params (`npx tsc --noEmit` and `--noUnusedLocals
---noUnusedParameters` both exit clean).
+**Phase 4** — RoleGate navigation guard, offline banner, app
+icon/splash assets; and an **audit pass** — a full page-by-page,
+method-by-method, type-by-type diff against the web app, which found
+and fixed a real permissions bug and two missing screens (Dashboard,
+Settings), and surfaced two larger gaps intentionally left for a
+follow-up rather than rushed (see "Audit pass" below). The whole
+project type-checks with zero errors and zero unused locals/params
+(`npx tsc --noEmit` and `--noUnusedLocals --noUnusedParameters` both
+exit clean).
 
 ## What's here
 
@@ -59,23 +62,28 @@ src/
                                  RootNavigator, not used directly by screens)
     crud/
       MasterCrudScreen.tsx      generic list+search+create/edit screen
-                                 driving 8 of the 10 Phase 1 pages
+                                 driving 7 of the 10 Phase 1 pages
+                                 (+ Equipment Master, with readOnly)
       FieldForm.tsx              renders a form from a FieldConfig[]
       types.ts                   FieldConfig type
   screens/
     auth/                      Login, ForgotPassword, ResetPassword
     app/
-      DashboardScreen.tsx      Phase 0's one real authenticated screen
+      DashboardScreen.tsx      Audit-pass rebuild — real KPIs (today's
+                                 stats, month P&L glance, cost composition,
+                                 top performers), not the Phase 0 placeholder
       PlaceholderScreen.tsx    fallback for any screen not yet in
                                  SCREEN_COMPONENTS (none currently used)
       UnitsScreen.tsx          ┐
       MachinesScreen.tsx       │
-      OperatorsScreen.tsx      │
-      SuppliersScreen.tsx      │ Phase 1 — all built on MasterCrudScreen,
+      OperatorsScreen.tsx      │ Phase 1 — all built on MasterCrudScreen,
       CustomersScreen.tsx      │ ~30-60 lines each (field config + api calls)
-      EquipmentMasterScreen.tsx│
-      OverheadsScreen.tsx      │
+      EquipmentMasterScreen.tsx│ (Equipment Master adds readOnly for
+      OverheadsScreen.tsx      │  non-superadmin — see "Audit pass" below)
       JobWorkScreen.tsx        ┘ (master list only — see scoping note below)
+      SuppliersScreen.tsx      Audit-pass rebuild — bespoke (was
+                                 MasterCrudScreen) for the per-supplier
+                                 Ledger view; see "Audit pass" below
       StockAlertsScreen.tsx    bespoke — read-only report, two tabs
       TenantsScreen.tsx        bespoke — impersonation-based edit flow
       BomScreen.tsx / BomEditScreen.tsx      Phase 2b — recipe editor
@@ -100,7 +108,107 @@ src/
                                  drawer; overdue/due-soon list + a
                                  follow-up log modal per invoice
       AuditTrailScreen.tsx     Phase 3 — searchable append-only log
+      SettingsScreen.tsx       Audit-pass addition — negative-stock
+                                 policy + FG restock thresholds; was
+                                 entirely missing, API layer already existed
 ```
+
+## Audit pass — a full diff against the web app
+
+Everything above was tracked against the migration plan. This pass
+instead diffed the two codebases directly: every page in
+`QMfg-Frontend/src/pages/` against every RN screen, every exported
+method and type in both `api.ts` files (`comm -23` on sorted method/
+type-name lists — not a skim), every i18n key, and every `user.role`
+conditional in the web app's JSX. Findings, in the order they were
+fixed:
+
+- **Equipment Master — a real bug, not just a gap.** The web app
+  restricts create/edit/delete to `superadmin`; everyone else gets a
+  read-only view with an explicit "maintained centrally, read-only"
+  subtitle. `EquipmentMasterScreen` never had that check, so any
+  logged-in user could edit a catalog that's shared across every
+  tenant. Fixed two ways: `MasterCrudScreen` gained a `readOnly?:
+  boolean` prop (collapses `createFn`/`updateFn`/`deactivateFn` to
+  `undefined` internally, so every existing conditional in the
+  component — the create button, row-tap-to-edit, the delete button —
+  disables itself for free, no new render branches), and
+  `EquipmentMasterScreen` now passes `readOnly={user?.role !==
+  'superadmin'}`. Bulk CSV upload (`bulkUploadEquipment`, also
+  superadmin-only on web) wasn't ported — low-traffic admin tool for a
+  handful of accounts, not worth the `papaparse`-on-mobile plumbing
+  for who'd use it.
+- **Dashboard was a placeholder.** The Phase 0 version was a minimal
+  "welcome card" by design, but `api.getDashboard()` and the
+  `DashboardData` type didn't exist anywhere in this file — a real gap
+  this audit found, not a known-and-deferred one. Rebuilt to match
+  `pages/Dashboard.tsx`: today's stats (units produced, sales, reorder
+  alerts, pending salaries — each tile links to the relevant screen),
+  this month's P&L at a glance (revenue/cost/gross/net with margins),
+  a cost-composition breakdown linking to the full P&L, and top
+  product/customer.
+- **Settings was entirely missing.** Not a stub, not a placeholder —
+  the screen and its nav entry didn't exist at all. The API layer was
+  already 100% there (`myCompany`/`updateMyCompany`, and `Company`'s
+  `negative_stock_policy`/`fg_cover_days`/`fg_history_days` fields),
+  so this was purely a missing screen: negative-stock policy (allow-
+  with-warning vs. block the run) as a two-option radio choice, plus
+  finished-goods restock thresholds (cover days / history window).
+  No role restriction on web's `/settings` route, so none here either.
+- **Supplier Ledger was missing.** `SuppliersScreen` was rebuilt from
+  a `MasterCrudScreen` wrapper to a bespoke screen — not because the
+  CRUD form had gaps (it didn't; field parity was already complete)
+  but because the web version has a per-row "Ledger" button opening a
+  running-balance statement (opening → billed → paid → closing, full
+  transaction list), and `MasterCrudScreen`/`ListRow` have no concept
+  of a secondary per-row action. Bolting one on for a single screen
+  wasn't worth complicating a component 7 other simple CRUD pages
+  share. `api.ts` picked up `SupplierLedger`/`SupplierLedgerLine` and
+  `supplierLedger()`.
+
+**Two things this audit found and deliberately did *not* fix in this
+pass — both large enough to deserve their own effort rather than a
+rushed add-on:**
+
+- **Job Work's "Activity" tab.** Only the Job Worker master list
+  (create/edit contract-manufacturer profiles) is built — matching the
+  original migration plan's Phase 1 scope, but a real gap against the
+  *web app itself*. What's missing: dispatching RM to a job worker
+  (multi-line), receiving FG back with per-material consumed/wastage/
+  returned tracking, an "RM at CMO" balance view, a payables-per-
+  worker view, pay-per-receipt, and reversible dispatches. Comparable
+  in size to the whole Sales + Receipts build combined — `JwDispatch`/
+  `JwReceipt`/`JwAccount`/`CmoBalance`/`JwPayable` types and
+  `createJwDispatch`/`createJwReceipt`/`listJwDispatches`/
+  `listJwReceipts`/`jwCmoBalances`/`jwPayables`/`payJwReceipt`/
+  `reverseJwDispatch` don't exist in this `api.ts` yet.
+- **i18n is wired up but not actually used past Login.** `en.json`/
+  `hi.json` have full key parity with the web app (verified: 199/199
+  keys match exactly, both languages), and `LanguageToggle` works —
+  but grep for `useTranslation` across `screens/app/`: zero matches.
+  Every Phase 1-3 screen renders hardcoded English strings, built that
+  way consistently across every prior session. The web app, by
+  contrast, calls `t()` throughout — Dashboard alone has ~30 calls,
+  and even a simple page like Overheads has 9. Retrofitting `t()` into
+  ~29 already-built screens is its own project, comparable in scope to
+  Job Work's Activity tab, and was deliberately left alone rather than
+  making the two new screens in this pass (`DashboardScreen.tsx`,
+  `SettingsScreen.tsx`) the only internationalized ones — that would
+  make the inconsistency *harder* to spot later, not easier. They use
+  hardcoded English too, matching every other screen, until a
+  dedicated i18n pass covers the whole app at once.
+
+**Confirmed *not* gaps**, so they're not listed as open items anywhere
+else in this file: every other Phase 1 page (Units, Machines,
+Operators, Overheads, Customers, Raw Materials, Finished Products,
+Other Expenses) has full field parity with no hidden features; the
+`getCustomer`/`getSupplier`/`getSale`/`getRmReceipt`/
+`listSupplierPayments` methods exist in the web app's `api.ts` but
+aren't called from any web page either — dead code there too, not a
+mobile-specific gap; RoleGate's role lists match the web app's
+`RoleGate` usage route for route; and the web app's `Layout.tsx` has
+no global search, notifications, or company-switcher beyond what's
+already in `DrawerContent.tsx`.
 
 ## Renamed to TanaBana
 
@@ -372,10 +480,10 @@ deactivate/delete button too).
 - **Job Workers**: only the master list (create/edit job worker
   profiles) is built. The web app's "Activity" tab on the same page —
   dispatching raw material to a job worker, recording finished-goods
-  receipts back, running balances/payables — is a transactional
-  workflow with its own state machine, distinct from the master-data
-  list here. There's no current plan to port it; it wasn't in the
-  original migration plan's page list.
+  receipts back, running balances/payables — is a separate
+  transactional sub-system. See "Audit pass" above for the full
+  scope of what's missing and why it's deliberately deferred rather
+  than skipped.
 - **Overheads**: every overhead created here is "General" (`fg_id:
   null`). The web app also supports linking one overhead to a specific
   Finished Product — that selector needs the Finished Products list
@@ -389,11 +497,15 @@ deactivate/delete button too).
 
 ## The MasterCrudScreen pattern
 
-8 of the 10 Phase 1 pages are ~30-60 line files that just configure
+7 of the 10 Phase 1 pages are ~30-60 line files that just configure
 `MasterCrudScreen` with:
 - a `FieldConfig[]` describing the form (label, type, options)
 - the matching `api.list*`/`create*`/`update*`/`deactivate*` functions
 - how to render each row's title/subtitle/badge
+
+(An 8th, Equipment Master, also uses it but adds `readOnly` — see
+"Audit pass" above. Suppliers used to be a 9th but was rebuilt bespoke
+for its Ledger view, also covered there.)
 
 Raw Materials and Finished Products (Phase 2a) also fit this shape,
 with an extra field or two. Everything from Production onward
@@ -444,6 +556,19 @@ one-time `eas build` trigger.
 - Salaries → tap a row → confirm `SalaryDetailScreen` renders in place
   (no navigation flicker) and the back chevron returns to a refreshed
   list, same check for BOM's editor.
+- Dashboard now loads real data — confirm `/api/dashboard` actually
+  returns something for a company with sales/production history
+  (empty-state companies will just show zero tiles, which is correct,
+  not broken).
+- Settings: toggle the negative-stock policy, save FG restock
+  thresholds, confirm both round-trip through `updateMyCompany`.
+- Suppliers: tap the Ledger button on a row with real receipts/
+  payments and confirm the running balance matches what Payables
+  shows for that supplier.
+- Equipment Master: log in as a non-superadmin and confirm the create
+  button and row-tap-to-edit are both gone — this was the actual bug
+  this audit found, so it's worth specifically re-verifying rather
+  than assuming the fix landed correctly.
 
 ## Phase 4 — RoleGate, offline banner, app icon/splash
 
