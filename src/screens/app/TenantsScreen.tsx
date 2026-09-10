@@ -77,7 +77,7 @@ export default function TenantsScreen() {
         </Pressable>
       </View>
       <Text style={styles.subtitle}>
-        Each tenant is one factory / customer of QMfg. Only superadmins see this page.
+        Each tenant is one factory / customer of TanaBana. Only superadmins see this page.
       </Text>
 
       {error ? (
