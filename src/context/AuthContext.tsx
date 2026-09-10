@@ -5,6 +5,7 @@ import {
   setToken,
   setRefreshToken,
   setForceLogoutHandler,
+  TOKEN_KEY,
   type User,
 } from '../lib/api';
 import { secureStorage } from '../lib/storage';
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const token = await secureStorage.getItem('qmfg_token');
+      const token = await secureStorage.getItem(TOKEN_KEY);
       if (!token) {
         setLoading(false);
         return;
