@@ -385,7 +385,7 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
                 )}
               </Card>
 
-              <Card style={[styles.section, styles.costCard]}>
+              <Card style={{ ...styles.section, ...styles.costCard }}>
                 <Text style={styles.sectionTitle}>Cost preview per unit {selectedFg?.unit}</Text>
                 <View style={styles.costRow}>
                   <Text style={styles.costLabel}>RM cost</Text>
