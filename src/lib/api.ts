@@ -475,6 +475,51 @@ export interface JobWorkerInput {
   notes?: string;
 }
 
+export interface JwDispatchItem { id: string; rm_id: string; rm_name_snapshot: string; rm_unit_snapshot: string; qty: string; }
+export interface JwDispatch {
+  id: string;
+  dispatch_number: string;
+  job_worker_id: string;
+  jw_name_snapshot: string;
+  dispatch_date: string;
+  notes: string | null;
+  reversed_at: string | null;
+  items: JwDispatchItem[];
+}
+export interface JwReceiptItem { id: string; rm_id: string; rm_name_snapshot: string; rm_unit_snapshot: string; qty_consumed: string; qty_wastage: string; qty_returned: string; }
+export interface JwReceipt {
+  id: string;
+  receipt_number: string;
+  job_worker_id: string;
+  jw_name_snapshot: string;
+  receipt_date: string;
+  fg_id: string;
+  fg_name_snapshot: string;
+  fg_unit_snapshot: string;
+  fg_qty: string;
+  rate_per_unit: string;
+  conversion_charge: string;
+  payment_status: 'unpaid' | 'paid';
+  paid_amount: string | null;
+  stock_warning: string | null;
+  items: JwReceiptItem[];
+}
+export interface JwAccount {
+  worker: JobWorker;
+  rm_balances: { rm_id: string; rm_name: string; unit: string; sent: number; drawn: number; balance: number }[];
+  amount_owed: number;
+  unpaid_count: number;
+  timeline: { kind: 'dispatch' | 'receipt'; ref: string; date: string; item: string; qty: string; charge: number | null }[];
+}
+export interface CmoBalance {
+  rm_id: string; rm_code: string; name: string; unit: string;
+  current_stock: string; stock_at_cmo: string;
+}
+export interface JwPayable {
+  job_worker_id: string; jw_code: string; name: string;
+  owed: number; unpaid_count: number; oldest_unpaid: string | null;
+}
+
 // ─── Phase 1: Stock Alerts (read-only reports) ────────────────────────
 export interface ReorderItem {
   id: string;
@@ -1349,6 +1394,54 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
+  },
+
+  // Job Work — dispatches (RM sent to a job worker)
+  listJwDispatches(params?: { job_worker_id?: number | string; page?: number; limit?: number }) {
+    return request<{ dispatches: JwDispatch[]; pagination: PageMeta }>(`/api/job-work/dispatches${qs(params)}`);
+  },
+  createJwDispatch(input: { job_worker_id: number | string; dispatch_date?: string; notes?: string; items: { rm_id: number | string; qty: number }[] }) {
+    return request<{ dispatch: JwDispatch }>('/api/job-work/dispatches', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  reverseJwDispatch(id: number | string) {
+    return request<{ dispatch: JwDispatch; warning: string | null }>(`/api/job-work/dispatches/${id}/reverse`, {
+      method: 'POST',
+    });
+  },
+
+  // Job Work — receipts (FG received back from a job worker)
+  listJwReceipts(params?: { job_worker_id?: number | string; payment_status?: 'unpaid' | 'paid'; page?: number; limit?: number }) {
+    return request<{ receipts: JwReceipt[]; pagination: PageMeta }>(`/api/job-work/receipts${qs(params)}`);
+  },
+  createJwReceipt(input: {
+    job_worker_id: number | string; fg_id: number | string; fg_qty: number; rate_per_unit: number;
+    receipt_date?: string; notes?: string;
+    items: { rm_id: number | string; qty_consumed: number; qty_wastage?: number; qty_returned?: number }[];
+  }) {
+    return request<{ receipt: JwReceipt; warning: string | null }>('/api/job-work/receipts', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  payJwReceipt(id: number | string, paidAmount?: number) {
+    return request<{ receipt: JwReceipt }>(`/api/job-work/receipts/${id}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ paid_amount: paidAmount }),
+    });
+  },
+
+  // Job Work — per-worker running account, CMO stock balances, payables
+  jwAccount(workerId: number | string) {
+    return request<JwAccount>(`/api/job-work/account/${workerId}`);
+  },
+  jwCmoBalances() {
+    return request<{ balances: CmoBalance[] }>('/api/job-work/cmo-balances');
+  },
+  jwPayables() {
+    return request<{ workers: JwPayable[]; total_owed: number }>('/api/job-work/payables');
   },
 
   // Stock alerts (read-only)
