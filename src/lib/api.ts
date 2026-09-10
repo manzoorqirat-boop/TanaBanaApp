@@ -1081,6 +1081,55 @@ export interface AuditLog {
 }
 
 // ─── API surface (Phase 0: Auth + Companies only) ────────────────────
+// ─── Dashboard ──────────────────────────────────────────────────────
+export interface DashboardData {
+  today: {
+    date: string;
+    units_produced: number;
+    runs_count: number;
+    sales_amount: number;
+    sales_count: number;
+    reorder_count: number;
+    reorder_estimated_cost: number;
+    unpaid_salary_count: number;
+    unpaid_salary_total: number;
+  };
+  month: {
+    period: { year: number; month: number };
+    revenue: number;
+    cost_total: number;
+    gross_profit: number;
+    net_profit: number;
+    gross_margin_pct: number | null;
+    net_margin_pct: number | null;
+    units_sold: number;
+    units_produced: number;
+    top_product: { name: string; revenue: number; units: number } | null;
+    top_customer: { name: string; revenue: number } | null;
+    cost_composition: { rm: number; overhead: number; salary: number; other: number };
+  };
+}
+
+// ─── Supplier ledger ────────────────────────────────────────────────
+export interface SupplierLedgerLine {
+  date: string;
+  ref: string;
+  detail: string;
+  /** A bill/receipt increasing what's owed. */
+  credit: number;
+  /** A payment reducing what's owed. */
+  debit: number;
+  /** Running balance after this line. */
+  balance: number;
+}
+export interface SupplierLedger {
+  opening_balance: number;
+  total_billed: number;
+  total_paid: number;
+  closing_balance: number;
+  lines: SupplierLedgerLine[];
+}
+
 export const api = {
   // Auth
   login(email: string, password: string) {
@@ -1667,5 +1716,15 @@ export const api = {
   // Audit logs
   listAuditLogs(params?: { q?: string; entity_type?: string; action?: string; page?: number; limit?: number }) {
     return request<{ logs: AuditLog[]; pagination: PageMeta }>(`/api/audit-logs${qs(params)}`);
+  },
+
+  // Dashboard
+  getDashboard() {
+    return request<DashboardData>('/api/dashboard');
+  },
+
+  // Supplier ledger
+  supplierLedger(id: number | string, params?: { from_date?: string; to_date?: string }) {
+    return request<SupplierLedger>(`/api/suppliers/${id}/ledger${qs(params)}`);
   },
 };
