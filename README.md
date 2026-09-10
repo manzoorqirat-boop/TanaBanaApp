@@ -1,17 +1,17 @@
-# QMfg Mobile — Phase 0 through Phase 3 complete
+# QMfg Mobile — all four phases complete
 
-React Native/Expo port of QMfg-Frontend. Delivered so far: **Phase 0**
-(auth, navigation shell, theme tokens, reusable primitives); **Phase
-1** — 10 simple CRUD/report pages (Units, Machines, Operators,
-Suppliers, Customers, Equipment Master, Overheads, Job Workers, Stock
-Alerts, Tenants); **Phase 2a** — Raw Materials, Finished Products,
+React Native/Expo port of QMfg-Frontend. **Phase 0** (auth, navigation
+shell, theme tokens, reusable primitives); **Phase 1** — 10 simple
+CRUD/report pages; **Phase 2a** — Raw Materials, Finished Products,
 Reorder, Other Expenses; **Phase 2b** — BOM/BomEdit, Production,
-Receipts, Payables, Sales, and Salaries/SalaryDetail; and **Phase 3**
-— GST Report, P&L, Cash Flow, Payment Follow-up (Receivables), and
-Audit Trail. Every page in the migration plan is now built. Only
-Phase 4 (RoleGate guards, LanguageToggle/HeaderSearch polish,
-offline/loading/error sweep, EAS Android build) remains — see
-"Continuing into Phase 4" at the end of this file.
+Receipts, Payables, Sales, Salaries/SalaryDetail; **Phase 3** — GST
+Report, P&L, Cash Flow, Payment Follow-up (Receivables), Audit Trail;
+and **Phase 4** — RoleGate navigation guard, offline banner, app
+icon/splash assets, and a couple of scoping corrections (see below).
+Every page in the original migration plan is built and wired up. The
+whole project type-checks with zero errors and zero unused
+locals/params (`npx tsc --noEmit` and `--noUnusedLocals
+--noUnusedParameters` both exit clean).
 
 ## What's here
 
@@ -19,18 +19,26 @@ offline/loading/error sweep, EAS Android build) remains — see
 App.tsx                        entry point: i18n boot, providers, nav
 app.config.ts                  Expo config; API URL via EXPO_PUBLIC_API_URL
 eas.json                       EAS build profiles (preview/production)
+assets/                        icon.png, splash.png, adaptive-icon.png —
+                                 Phase 4 placeholders (see "App icon/splash"
+                                 below), swap for real branding before shipping
 src/
   theme/tokens.ts              ported from index.css :root variables
   lib/
     storage.ts                 SecureStore (tokens) + AsyncStorage (prefs)
     api.ts                     ported request()/auth/companies + every
                                 domain endpoint through Phase 3
+    useNetworkStatus.ts        Phase 4 — NetInfo-based online/offline hook
   context/AuthContext.tsx      ported, adapted for async storage
   i18n/                        react-i18next, en/hi locales copied as-is
   navigation/
-    RootNavigator.tsx          swaps Auth ↔ App navigator on auth state
+    RootNavigator.tsx          swaps Auth ↔ App navigator on auth state;
+                                 renders the Phase 4 OfflineBanner app-wide
     AuthNavigator.tsx          Login, ForgotPassword, ResetPassword
-    AppNavigator.tsx           Drawer; registers every NAV screen
+    AppNavigator.tsx           Drawer; registers every NAV screen, each
+                                 wrapped in RoleGate per its navConfig roles
+    RoleGate.tsx                Phase 4 — navigation-level role guard,
+                                 ports App.tsx's RoleGate route wrapper
     navConfig.ts                ported NAV array from Layout.tsx
     DrawerContent.tsx           ported grouped/collapsible sidebar
     linking.ts                  deep link config for password reset
@@ -42,7 +50,13 @@ src/
                                  by Receipts' create/edit forms),
                                  ReportTable (Phase 3 — the shared
                                  card-per-row primitive every report
-                                 screen below is built on)
+                                 screen below is built on),
+                                 HeaderSearch (Phase 4 — shared search
+                                 input for new list screens; existing
+                                 screens already have this inlined, see
+                                 "HeaderSearch" below),
+                                 OfflineBanner (Phase 4 — rendered by
+                                 RootNavigator, not used directly by screens)
     crud/
       MasterCrudScreen.tsx      generic list+search+create/edit screen
                                  driving 8 of the 10 Phase 1 pages
@@ -372,29 +386,97 @@ one-time `eas build` trigger.
   (no navigation flicker) and the back chevron returns to a refreshed
   list, same check for BOM's editor.
 
-## Continuing into Phase 4 (last phase)
+## Phase 4 — RoleGate, offline banner, app icon/splash
 
-Everything in the migration plan's page list is now built. What's
-left is polish, not new pages:
+Migration-plan Phase 4 was RoleGate guards, LanguageToggle/
+HeaderSearch polish, an offline/loading/error sweep, and app icon/
+splash/EAS config. Here's what each turned out to need:
 
-- **RoleGate route guards** — port as a navigation-level guard that
-  redirects unauthenticated/unauthorized users before a screen mounts,
-  rather than after (the web version's after-the-fact redirect doesn't
-  translate directly to RN navigation).
-- **LanguageToggle** already has a Phase 0 port in `components/ui/`
-  wired into the drawer — confirm it's reachable from screens that
-  aren't the drawer footer, not just check it exists.
-- **HeaderSearch** — the web version's search logic depth needs
-  checking before assuming this is a trivial copy; budget real time
-  for it.
-- **Offline/loading/error sweep** — every screen already has its own
-  loading/error state (established pattern throughout), but a
-  deliberate pass across all of them for offline behavior (no network,
-  slow network, stale cached lists) hasn't happened yet.
-- **App icon, splash screen, `app.json`/`eas.json` config**, then an
-  **EAS build → internal testing track → sign for Play Store**.
+- **RoleGate — real gap, now fixed.** The web app wraps individual
+  restricted routes (GST Report, Cash Flow, Receivables, Audit Trail,
+  Tenants) in a `RoleGate` that shows an explicit "Access denied"
+  screen rather than silently failing. The RN port only had
+  `DrawerContent`'s `canSee()` filtering restricted items out of the
+  *menu* — which stops someone from tapping their way there, but
+  doesn't stop `navigation.navigate('Tenants')` from mounting the real
+  screen if called from anywhere else (a Dashboard shortcut, a deep
+  link, future code that doesn't know about the restriction). Added
+  `navigation/RoleGate.tsx` (ports the web version's copy and layout
+  exactly) and wired it into `AppNavigator.tsx` via a
+  `GATED_SCREEN_COMPONENTS` map built once at module load — every
+  screen whose `navConfig.ts` entry has `roles` is now wrapped, so the
+  check happens before the real screen mounts, matching the plan's
+  "navigation-level guard" framing. Also made `flattenNavScreens()`
+  inherit a parent group's `roles` onto children without their own,
+  defensively (no group currently sets `roles`, but a child shouldn't
+  need to repeat it if one ever does).
+- **LanguageToggle — not actually a gap.** The plan's note said to
+  "confirm it's reachable from every screen, not just the drawer
+  footer" — but checking the *web app itself* shows `LanguageToggle`
+  is only ever used on `pages/Login.tsx`, never in the authenticated
+  `Layout.tsx` sidebar. The RN port already matches that exactly (only
+  used on `LoginScreen.tsx`). No change needed; a Phase 3 README note
+  claiming it was "wired into the drawer" was simply wrong and is
+  corrected here.
+- **HeaderSearch — not actually a gap either.** The web source
+  (`components/HeaderSearch.tsx`) is a plain controlled input with an
+  Enter-to-submit handler, no hidden logic. Every RN list screen built
+  across Phases 2-3 already has this exact behavior inlined via
+  `TextField` + `onSubmitEditing` (built before a shared version
+  existed). Added `components/ui/HeaderSearch.tsx` for any *new* list
+  screen to use, but didn't retrofit the ~10 existing ones — that's a
+  pure refactor with zero behavior change, not worth the churn.
+- **Offline sweep.** Every screen already has its own loading/error
+  state (established pattern since Phase 1) — retrofitting all ~25 of
+  them individually for offline-specific messaging wasn't the highest-
+  leverage move. Instead added one app-shell-level signal:
+  `lib/useNetworkStatus.ts` (a `@react-native-community/netinfo`
+  hook) + `components/ui/OfflineBanner.tsx`, rendered by
+  `RootNavigator.tsx` above the navigator so it's visible on every
+  screen without touching any of them. Screens still show their own
+  request-level errors when a call actually fails; the banner just
+  explains *why*, proactively, before someone starts tapping around
+  with no connection.
+- **App icon/splash — found a real build-breaker.** `app.config.ts`
+  already referenced `./assets/icon.png`, `./assets/splash.png`, and
+  `./assets/adaptive-icon.png` (plus an adaptive-icon background color
+  and splash background color, both already chosen) — but the
+  `assets/` folder didn't exist at all. An actual `eas build` would
+  have failed on missing assets. Generated functional placeholder PNGs
+  (a simple white "Q" mark on the app's accent blue, `#1d4ed8`) sized
+  correctly for each use — 1024×1024 solid background for `icon.png`,
+  1024×1024 transparent-background version with the glyph kept inside
+  Android's ~66% adaptive-icon safe zone for `adaptive-icon.png`, and
+  a smaller transparent version for `splash.png` so the config's
+  splash `backgroundColor` shows through cleanly. These are
+  placeholders, not final branding — swap them for real assets before
+  a production release, but the build path is no longer broken.
 
-The practical next step is the polish sweep above, then a real EAS
-build on a device to catch anything that only shows up outside Expo
-Go (the GSTR-1 share-sheet flow in particular is worth testing on a
-real device, since sharing behavior can differ from the simulator).
+Bonus: while doing this pass, also fixed the one pre-existing type
+error in `BomEditScreen.tsx` (same array-passed-to-`Card`-style
+pattern fixed elsewhere) and two pre-existing unused-variable warnings
+in `MasterCrudScreen.tsx`/`DashboardScreen.tsx`. The whole project now
+type-checks with zero errors and zero unused locals/params.
+
+## What's left
+
+Everything in the original migration plan — every page, every phase —
+is built. What remains is exactly what no amount of code review from
+here can substitute for:
+
+- **An actual EAS build on a real device.** Nothing in this repo has
+  run outside a TypeScript compiler yet. Push to GitHub, run
+  `eas build --platform android --profile preview` (see "Setup"
+  above), and install the result on a phone.
+- **The GSTR-1 share-sheet flow specifically** — `expo-sharing`'s
+  behavior can differ between Expo Go, a simulator, and a real device;
+  this is the one Phase 3 feature that reaches outside pure UI code
+  (writing a file, invoking the OS share sheet) and is worth
+  deliberately testing first.
+- **RoleGate, in practice** — log in as a non-owner/non-superadmin
+  role and confirm both halves: the drawer hides restricted items
+  (already worked before this change) *and* an attempt to reach one
+  anyway shows "Access denied" rather than crashing or rendering the
+  real screen (the part this change added).
+- **Real app icon/splash art** — the placeholders unblock the build
+  but aren't final branding.
