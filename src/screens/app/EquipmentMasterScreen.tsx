@@ -1,6 +1,7 @@
 import { MasterCrudScreen } from '../../components/crud/MasterCrudScreen';
 import { api, type Equipment, type EquipmentInput } from '../../lib/api';
 import type { FieldConfig } from '../../components/crud/types';
+import { useAuth } from '../../context/AuthContext';
 
 const fields: FieldConfig<EquipmentInput>[] = [
   { key: 'equipment_code', label: 'Equipment code', type: 'text', required: true },
@@ -12,13 +13,25 @@ const fields: FieldConfig<EquipmentInput>[] = [
   { key: 'specifications', label: 'Specifications', type: 'textarea' },
 ];
 
-/** Note: this is the global, superadmin-managed equipment catalog — not per-tenant. */
+/**
+ * The global, superadmin-managed equipment catalog — shared across
+ * every tenant, not per-company. Ports pages/EquipmentMaster.tsx's
+ * role check exactly: only superadmin can create/edit/delete entries;
+ * everyone else gets a read-only view of the shared catalog. (Bulk
+ * CSV upload — also superadmin-only on web — isn't ported here; it's
+ * a low-traffic admin tool for a handful of accounts, not a gap that
+ * affects regular factory users.)
+ */
 export default function EquipmentMasterScreen() {
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === 'superadmin';
+
   return (
     <MasterCrudScreen<Equipment, EquipmentInput>
       title="Equipment Master"
       emptyLabel="No equipment yet. Add the first entry."
       fields={fields}
+      readOnly={!isSuperadmin}
       listFn={async (params) => (await api.listEquipment(params)).equipment}
       createFn={api.createEquipment}
       updateFn={api.updateEquipment}
