@@ -8,18 +8,17 @@ Receipts, Payables, Sales, Salaries/SalaryDetail; **Phase 3** — GST
 Report, P&L, Cash Flow, Payment Follow-up (Receivables), Audit Trail;
 **Phase 4** — RoleGate navigation guard, offline banner, app
 icon/splash assets; and an **audit pass** — a full page-by-page,
-method-by-method, type-by-type diff against the web app, done in two
+method-by-method, type-by-type diff against the web app, done in three
 rounds. The first found and fixed a real permissions bug, two missing
 screens (Dashboard, Settings), and a missing Supplier Ledger view; the
-second built out the one gap from the first round large enough to
-defer — Job Work's entire "Activity" tab (dispatch/receive/balances/
-payables/account drill-down), previously just a master list. One item
-remains intentionally deferred: i18n is wired up (full key parity,
-`LanguageToggle` works) but not actually called from any screen past
-Login — see "Audit pass" below for why that's its own project rather
-than a quick add. The whole project type-checks with zero errors and
-zero unused locals/params (`npx tsc --noEmit` and `--noUnusedLocals
---noUnusedParameters` both exit clean).
+second built out Job Work's entire "Activity" tab (dispatch/receive/
+balances/payables/account drill-down), previously just a master list;
+the third corrected an overstated i18n-gap claim from the first round
+(see "i18n coverage" below — it was 2 screens, not ~30) and added
+Urdu, which the web app doesn't have at all. The whole project
+type-checks with zero errors and zero unused locals/params
+(`npx tsc --noEmit` and `--noUnusedLocals --noUnusedParameters` both
+exit clean).
 
 ## What's here
 
@@ -38,7 +37,11 @@ src/
                                 domain endpoint through Phase 3
     useNetworkStatus.ts        Phase 4 — NetInfo-based online/offline hook
   context/AuthContext.tsx      ported, adapted for async storage
-  i18n/                        react-i18next, en/hi locales copied as-is
+  i18n/                        react-i18next; en/hi locales copied as-is
+                                 from web, ur.json added (RN-only — the
+                                 web app doesn't have Urdu); index.ts
+                                 also owns RTL wiring — see "Urdu / RTL
+                                 support" below
   navigation/
     RootNavigator.tsx          swaps Auth ↔ App navigator on auth state;
                                  renders the Phase 4 OfflineBanner app-wide
@@ -53,7 +56,9 @@ src/
   components/
     ui/                        Button, Card, TextField, Select,
                                  ListRow, EmptyState, ErrorBanner,
-                                 LanguageToggle, GstRatePicker (Phase 2b —
+                                 LanguageToggle (now a 3-way en/hi/ur
+                                 picker — see "Urdu / RTL support"
+                                 below), GstRatePicker (Phase 2b —
                                  standard-slab dropdown + "Other…", used
                                  by Receipts' create/edit forms),
                                  ReportTable (Phase 3 — the shared
@@ -195,25 +200,86 @@ fixed:
   the original Phase 2b build (Sales/Receipts/Payables/Salaries) —
   comparable in scope to that whole batch combined, not a quick add.
 
-**One thing this audit found and deliberately did *not* fix — large
-enough to deserve its own effort rather than a rushed add-on:**
+## i18n coverage — a correction, then real parity
 
-- **i18n is wired up but not actually used past Login.** `en.json`/
-  `hi.json` have full key parity with the web app (verified: 199/199
-  keys match exactly, both languages), and `LanguageToggle` works —
-  but grep for `useTranslation` across `screens/app/`: zero matches.
-  Every Phase 1-3 screen renders hardcoded English strings, built that
-  way consistently across every prior session. The web app, by
-  contrast, calls `t()` throughout — Dashboard alone has ~30 calls,
-  and even a simple page like Overheads has 9. Retrofitting `t()` into
-  ~30 already-built screens is its own project — comparable in scope
-  to what Job Work's Activity tab was before this pass — and was
-  deliberately left alone rather than making the newest screens
-  (`DashboardScreen.tsx`, `SettingsScreen.tsx`, the rebuilt
-  `JobWorkScreen.tsx`) the only internationalized ones, which would
-  make the inconsistency *harder* to spot later, not easier. They use
-  hardcoded English too, matching every other screen, until a
-  dedicated i18n pass covers the whole app at once.
+An earlier version of this README claimed the web app "calls `t()`
+throughout — Dashboard alone has ~30 calls, and even a simple page
+like Overheads has 9," and that catching the RN app up would mean
+retrofitting ~30 screens — a project comparable to Job Work's Activity
+tab. That count was wrong: it came from `grep -c "useTranslation\|t("`,
+and the bare `t(` pattern matches almost anything ending in `t`
+followed by a parenthesis — `format(`, `sort(`, `count(`, `input(` —
+not just real translation calls. Rerun with a precise pattern
+(`\bt\(['"]`, actual `t(` calls with a string literal) and the real
+picture is very different:
+
+```
+45  pages/Payables.tsx
+44  pages/Dashboard.tsx
+14  pages/Login.tsx
+ 0  every other page, including components/Layout.tsx (the sidebar)
+```
+
+The web app has real i18n coverage on exactly **three** pages —
+Login, Dashboard, Payables — and hardcodes English everywhere else,
+sidebar included. So the actual parity target was never "30 screens
+behind the web app"; it was two screens: Dashboard and Payables. Both
+are now retrofitted with real `t()` calls matching the web version's
+keys exactly (pluralization via i18next's `_one`/`_other` suffixes,
+`t('months', { returnObjects: true })` for month names, the same
+`currentLocale()` pattern for date formatting). Login already used
+`t()` from Phase 0. Every other screen — including the drawer sidebar
+— renders hardcoded English, and that's not a gap, it's parity: the
+web app's own sidebar does the same thing.
+
+## Urdu / RTL support
+
+Not a web-app port — the web app only ships English and Hindi. Added
+here because it's a natural extension of the existing i18n
+infrastructure and directly useful for the app's audience. Two
+genuinely different pieces, worth keeping distinct:
+
+**Urdu text — done, complete.** `src/i18n/locales/ur.json` has all 199
+keys translated (verified against `en.json` with the same flatten-and-
+diff check used for the Hindi file: 199/199, zero missing either
+direction), following the same convention Hindi uses — technical/
+business terms (GST, BOM, UPI, P&L, ERP) stay in Latin script inside
+otherwise-Urdu sentences, matching how `hi.json` handles the same
+terms. `LanguageToggle` is now a 3-way picker (English / हिंदी / اردو
+— each language's name shown in its own script, the standard
+convention for language pickers, not something to translate) instead
+of the old binary en/hi toggle.
+
+**RTL layout — infrastructure wired up, not manually verified.** Urdu
+is written right-to-left, which is a layout concern, not just a text
+concern. `i18n/index.ts` calls `I18nManager.allowRTL(true)` +
+`I18nManager.forceRTL(isUrdu)` during app boot (before anything real
+has rendered — `App.tsx` shows a spinner during this async
+`initI18n()` call), which makes RN mirror flex-based layouts
+automatically. Since every screen in this codebase is flex-based, that
+covers a lot for free. What it doesn't cover:
+- **Switching language at runtime.** RN can't remirror an already-
+  mounted tree, so `changeLanguage()` now returns `{ rtlChanged }`,
+  and `LanguageToggle` shows a "restart needed" alert when switching
+  to or from Urdu changes the RTL requirement. No automatic reload is
+  wired up — `expo-updates`' reload API needs EAS Update configured
+  and behaves differently in Expo Go than a built app, so a plain
+  restart prompt is the honest, dependency-free choice for now.
+- **Nothing has been visually verified in RTL.** I can't render an RN
+  screen with RTL flip active from here — there's no device or
+  simulator in this environment. `I18nManager`'s automatic mirroring
+  handles standard flex layouts, but doesn't touch things like
+  directionally-meaningful icons (a back chevron should flip; a rupee
+  symbol shouldn't) or any spot using explicit `left`/`right` instead
+  of `flexDirection`. None of that has been swept for or corrected.
+  Test on a real device before shipping Urdu as more than a preview.
+- **Text-only right now.** Given the "i18n coverage" correction above,
+  Urdu is currently visible on exactly the same three screens as
+  Hindi: Login, Dashboard, Payables. Everywhere else still renders
+  hardcoded English regardless of language selected — switching to
+  Urdu doesn't currently *break* anything on those other screens, it
+  just doesn't translate them, same as switching to Hindi wouldn't
+  either.
 
 **Confirmed *not* gaps**, so they're not listed as open items anywhere
 else in this file: every other Phase 1 page (Units, Machines,
@@ -593,6 +659,14 @@ one-time `eas build` trigger.
   at that CMO reflecting the consumption. Also try reversing an
   unconsumed dispatch and confirm the stock warning behavior if you
   reverse one that's already been partly drawn against.
+- Language switching: on Login, tap through all three — English,
+  हिंदी, اردو. Confirm Urdu text renders correctly (proper Nastaliq/
+  Naskh shaping, not boxes or reversed characters — a real font/script
+  support check that can't be done from here). Then switch to Urdu,
+  confirm the restart alert appears, close and reopen the app, and
+  check whether the layout actually mirrored (RTL) — this is the
+  single most important manual check left in this whole project, per
+  "Urdu / RTL support" above.
 
 ## Phase 4 — RoleGate, offline banner, app icon/splash
 
@@ -698,8 +772,7 @@ here can substitute for:
   real screen (the part this change added).
 - **Real app icon/splash art** — the placeholders unblock the build
   but aren't final branding.
-- **The i18n retrofit** — see "Audit pass" above. Every screen works
-  correctly in English; none of them actually respect a language
-  switch yet, despite the locale files and `LanguageToggle` being
-  ready. This is the one open item left from a genuinely thorough
-  audit, not an oversight — it's sized like its own project.
+- **RTL on a real device** — Urdu's text is done; its right-to-left
+  layout is only automatic-mirroring-plus-hope until someone actually
+  looks at a screen in Urdu on a phone. See "Urdu / RTL support"
+  above for exactly what's unverified.
