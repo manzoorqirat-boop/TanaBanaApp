@@ -22,7 +22,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { ErrorBanner } from '../ui/ErrorBanner';
 import { FieldForm } from './FieldForm';
 import type { FieldConfig } from './types';
-import { colors, spacing, radius, fontSize } from '../../theme/tokens';
+import { colors, spacing, fontSize } from '../../theme/tokens';
 
 interface BaseItem {
   id: string;
