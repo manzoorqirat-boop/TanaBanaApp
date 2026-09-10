@@ -105,7 +105,7 @@ export const NAV: NavEntry[] = [
       { screen: 'Overheads', icon: Zap, label: 'Overheads', implemented: true },
     ],
   },
-  { screen: 'Settings', icon: SettingsIcon, label: 'Settings' },
+  { screen: 'Settings', icon: SettingsIcon, label: 'Settings', implemented: true },
   { screen: 'AuditTrail', icon: ScrollText, label: 'Audit Trail', roles: ['owner', 'superadmin'], implemented: true },
   { screen: 'Tenants', icon: Building2, label: 'Tenants', roles: ['superadmin'], implemented: true },
 ];
