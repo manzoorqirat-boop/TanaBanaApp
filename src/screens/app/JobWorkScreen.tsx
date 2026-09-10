@@ -14,11 +14,14 @@ const fields: FieldConfig<JobWorkerInput>[] = [
 ];
 
 /**
- * Phase 1 scope: job worker master data only (list/create/edit — the
- * web app's "Job Workers" tab). The web page's "Activity" tab —
- * dispatching raw material, recording receipts, running balances and
- * payables — is a transactional workflow that belongs in Phase 2
- * alongside Production/Receipts, not here.
+ * Job worker master data only (list/create/edit — the web app's "Job
+ * Workers" tab). The web page's "Activity" tab — dispatching raw
+ * material, recording receipts, running balances and payables — is a
+ * separate transactional sub-system, confirmed still missing by a
+ * full audit against the web app (see README's "Audit pass" section)
+ * and deliberately left for its own effort rather than a rushed
+ * add-on, given it's comparable in size to the whole Sales+Receipts
+ * build.
  */
 export default function JobWorkScreen() {
   return (
