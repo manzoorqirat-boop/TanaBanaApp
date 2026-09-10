@@ -1,4 +1,4 @@
-# QMfg Mobile — all four phases complete
+# TanaBana Mobile — all four phases complete
 
 React Native/Expo port of QMfg-Frontend. **Phase 0** (auth, navigation
 shell, theme tokens, reusable primitives); **Phase 1** — 10 simple
@@ -101,6 +101,65 @@ src/
                                  follow-up log modal per invoice
       AuditTrailScreen.tsx     Phase 3 — searchable append-only log
 ```
+
+## Renamed to TanaBana
+
+The app's display name was originally "QMfg" (matching the source web
+app's own branding — see `QMfg-Frontend` throughout this file, which
+is that source repo's actual name and stays as-is, since it's a
+factual pointer to what's being ported, not this app's brand). It's
+now "TanaBana". What changed and what didn't:
+
+**Changed — user-visible, no downside:**
+- `app.config.ts`'s `name` field, the brand text on the drawer header
+  and all three auth screens (Login/ForgotPassword/ResetPassword), the
+  Tenants page's explanatory copy, and the footer copyright string in
+  both `en.json` and `hi.json`.
+- `package.json`'s `name` field (and the regenerated `package-lock.json`
+  to match) — purely a dev-tooling label, zero runtime effect.
+
+**Changed — safe *only* because nothing has shipped yet:**
+- `app.config.ts`'s `slug` (`qmfg-mobile` → `tanabana-mobile`) and
+  `android.package` (`com.qmsofts.qmfg` → `com.qmsofts.tanabana`). The
+  slug ties to whatever Expo/EAS project you've registered; the
+  Android package name is **permanent** once a build using it reaches
+  the Play Store. Both are safe to change now since — per every prior
+  phase's notes in this README — no build has been signed or
+  submitted yet. If that's no longer true by the time you read this
+  (i.e. you've already run a real `eas build` or published anything),
+  revert these two specific fields rather than the rest of this
+  change.
+- The deep-link scheme in `navigation/linking.ts`
+  (`qmfg://` → `tanabana://`, plus the matching `https://` prefix).
+  Same caveat: only matters once a build is live, and the backend's
+  password-reset email template needs to agree with whichever scheme
+  is actually current.
+- The SecureStore/AsyncStorage key names in `lib/api.ts`
+  (`qmfg_token`/`qmfg_refresh`/`qmfg_active_company` →
+  `tanabana_token`/etc.). While making this change, found
+  `context/AuthContext.tsx`'s bootstrap check was a **hardcoded
+  duplicate of the token-key string** rather than importing the
+  constant from `api.ts` — a pre-existing bug risk (not introduced by
+  this rename) that would have silently broken login-state restoration
+  the moment the two literals drifted, exactly like this rename would
+  have. Fixed properly: `TOKEN_KEY` is now exported from `api.ts` and
+  `AuthContext.tsx` imports it instead of repeating the literal. The
+  practical effect of the key rename itself: anyone with an existing
+  dev build gets logged out once on next launch. Harmless with no real
+  users yet.
+
+**Deliberately not touched:**
+- The `com.qmsofts.*` Android package namespace itself (only the
+  trailing segment changed) — `qmsofts` is the company/developer
+  namespace, not the app name.
+- Every reference to `QMfg-Frontend` — that's the actual name of the
+  source web-app repo this was ported from, a fact about where the
+  code came from, not this app's own branding.
+- The overall placeholder approach (still not final branding — swap
+  before a production release) and the accent-blue palette
+  (`#1d4ed8`). The mark itself was redesigned though, not just
+  relabeled — see the icon/splash note in the Phase 4 section below
+  for what it shows now and why.
 
 ## Phase 3 — GST Report, P&L, Cash Flow, Receivables, Audit Trail
 
@@ -354,7 +413,7 @@ one-time `eas build` trigger.
 2. Set your API URL as a secret per environment (Expo dashboard →
    your project → Environment variables), matching the `EXPO_PUBLIC_API_URL`
    placeholders in `eas.json`. Point `preview` at whatever
-   Railway URL you're using for QMfg's backend right now.
+   Railway URL you're using for TanaBana's backend right now.
 3. Push this repo, then trigger a build:
    ```
    eas build --platform android --profile preview
@@ -437,20 +496,30 @@ splash/EAS config. Here's what each turned out to need:
   request-level errors when a call actually fails; the banner just
   explains *why*, proactively, before someone starts tapping around
   with no connection.
-- **App icon/splash — found a real build-breaker.** `app.config.ts`
-  already referenced `./assets/icon.png`, `./assets/splash.png`, and
-  `./assets/adaptive-icon.png` (plus an adaptive-icon background color
-  and splash background color, both already chosen) — but the
-  `assets/` folder didn't exist at all. An actual `eas build` would
-  have failed on missing assets. Generated functional placeholder PNGs
-  (a simple white "Q" mark on the app's accent blue, `#1d4ed8`) sized
-  correctly for each use — 1024×1024 solid background for `icon.png`,
-  1024×1024 transparent-background version with the glyph kept inside
-  Android's ~66% adaptive-icon safe zone for `adaptive-icon.png`, and
-  a smaller transparent version for `splash.png` so the config's
-  splash `backgroundColor` shows through cleanly. These are
-  placeholders, not final branding — swap them for real assets before
-  a production release, but the build path is no longer broken.
+- **App icon/splash — found a real build-breaker, then designed a
+  real mark.** `app.config.ts` already referenced `./assets/icon.png`,
+  `./assets/splash.png`, and `./assets/adaptive-icon.png` (plus an
+  adaptive-icon background color and splash background color, both
+  already chosen) — but the `assets/` folder didn't exist at all. An
+  actual `eas build` would have failed on missing assets. The first
+  pass generated a plain white "Q" letterform; that got replaced with
+  something more intentional once the app was renamed: "TanaBana"
+  (ताना-बाना) literally means *warp and weft* — the two thread sets
+  that cross to form woven fabric — which is both a better mark for a
+  manufacturing app than a monogram and a literal reading of the name.
+  The current assets are a circular 3×3 basket-weave — two-tone bands
+  (opaque + translucent) alternating in a checkerboard so alternating
+  crossings read as over/under, not a flat grid — rendered at 4×
+  supersampling and downsampled for clean anti-aliased edges. Sized
+  correctly for each use: 1024×1024 solid accent-blue (`#1d4ed8`)
+  background for `icon.png`; 1024×1024 transparent background with
+  the mark kept inside Android's ~66% adaptive-icon safe zone for
+  `adaptive-icon.png`; a smaller transparent version in accent-blue
+  tones for `splash.png` so the config's light splash `backgroundColor`
+  shows through cleanly. Still hand-generated placeholders, not a
+  professional design pass — swap for real brand assets before a
+  production release — but they're now a real, on-brand mark rather
+  than a letter, and the build path is no longer broken either way.
 
 Bonus: while doing this pass, also fixed the one pre-existing type
 error in `BomEditScreen.tsx` (same array-passed-to-`Card`-style
