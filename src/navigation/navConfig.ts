@@ -110,12 +110,23 @@ export const NAV: NavEntry[] = [
   { screen: 'Tenants', icon: Building2, label: 'Tenants', roles: ['superadmin'], implemented: true },
 ];
 
-/** Flattened list of every screen name in NAV — used to auto-register placeholder routes. */
+/**
+ * Flattened list of every screen name in NAV — used to auto-register
+ * routes. A child without its own `roles` inherits its parent group's
+ * `roles` (defensive: no group currently sets `roles`, but if one
+ * ever does, its children should be restricted too without having to
+ * repeat the same roles array on every child).
+ */
 export function flattenNavScreens(): NavLeaf[] {
   const out: NavLeaf[] = [];
   for (const entry of NAV) {
-    if (isGroup(entry)) out.push(...entry.children);
-    else out.push(entry);
+    if (isGroup(entry)) {
+      for (const child of entry.children) {
+        out.push(child.roles ? child : { ...child, roles: entry.roles });
+      }
+    } else {
+      out.push(entry);
+    }
   }
   return out;
 }
