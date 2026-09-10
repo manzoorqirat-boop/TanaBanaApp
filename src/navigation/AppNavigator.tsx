@@ -21,6 +21,11 @@ import ReceiptsScreen from '../screens/app/ReceiptsScreen';
 import PayablesScreen from '../screens/app/PayablesScreen';
 import SalesScreen from '../screens/app/SalesScreen';
 import SalariesScreen from '../screens/app/SalariesScreen';
+import GstReportScreen from '../screens/app/GstReportScreen';
+import PnlScreen from '../screens/app/PnlScreen';
+import CashFlowScreen from '../screens/app/CashFlowScreen';
+import ReceivablesScreen from '../screens/app/ReceivablesScreen';
+import AuditTrailScreen from '../screens/app/AuditTrailScreen';
 import { DrawerContent } from './DrawerContent';
 import { flattenNavScreens } from './navConfig';
 
@@ -29,11 +34,14 @@ const Drawer = createDrawerNavigator();
 // Every screen name from navConfig gets a route. Phase 0 shipped
 // Dashboard; Phase 1 added 10 CRUD/report pages; Phase 2a adds the
 // simple-enough-for-MasterCrudScreen transactional pages below.
-// Phase 2b is now complete: BOM, Production, Receipts, Payables,
-// Sales, and Salaries (with SalaryDetailScreen rendered in place, same
-// pattern as BomScreen/BomEditScreen) all ship as bespoke screens.
-// Only Phase 3 (reports) and Phase 4 (polish) items still render
-// PlaceholderScreen — see the README.
+// Phase 2b is complete: BOM, Production, Receipts, Payables, Sales,
+// and Salaries (with SalaryDetailScreen rendered in place, same
+// pattern as BomScreen/BomEditScreen). Phase 3 is now complete too:
+// GST Report, P&L, Cash Flow, Payment Follow-up (Receivables), and
+// Audit Trail all ship as bespoke screens built on the shared
+// ReportTable primitive (components/ui/ReportTable.tsx). Only Phase 4
+// (RoleGate guards, LanguageToggle/HeaderSearch polish, offline sweep,
+// EAS Android build) remains — see the README.
 const SCREEN_COMPONENTS: Record<string, React.ComponentType> = {
   Dashboard: DashboardScreen,
   Units: UnitsScreen,
@@ -56,6 +64,11 @@ const SCREEN_COMPONENTS: Record<string, React.ComponentType> = {
   Payables: PayablesScreen,
   Sales: SalesScreen,
   Salaries: SalariesScreen,
+  GstReport: GstReportScreen,
+  Pnl: PnlScreen,
+  CashFlow: CashFlowScreen,
+  Receivables: ReceivablesScreen,
+  AuditTrail: AuditTrailScreen,
 };
 
 /**
