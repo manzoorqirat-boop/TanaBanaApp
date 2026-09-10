@@ -15,7 +15,9 @@ import {
 import { Menu, ChevronLeft, X, Wallet, IndianRupee, CheckCircle2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useTranslation } from 'react-i18next';
 import { api, type PayablesSupplier, type PayablesReceipt, type PaymentMode } from '../../lib/api';
+import { currentLocale } from '../../i18n';
 import { TextField } from '../../components/ui/TextField';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/Button';
@@ -30,19 +32,11 @@ function todayIso(): string {
 }
 function formatDate(iso: string): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(currentLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function fmt(n: number | string, digits = 2): string {
   return Number(n).toLocaleString('en-IN', { maximumFractionDigits: digits });
 }
-
-const PAYMENT_MODES: { label: string; value: PaymentMode }[] = [
-  { label: 'UPI', value: 'upi' },
-  { label: 'Bank', value: 'bank' },
-  { label: 'Cash', value: 'cash' },
-  { label: 'Cheque', value: 'cheque' },
-  { label: 'Other', value: 'other' },
-];
 
 /**
  * Ports pages/Payables.tsx — supplier-level payables. Top level lists
@@ -51,8 +45,16 @@ const PAYMENT_MODES: { label: string; value: PaymentMode }[] = [
  * recordPayment (the web app only supports paying a receipt's full
  * line_total, not partial amounts — that's Sales' payment flow, not
  * this one).
+ *
+ * This is one of only three web pages with real i18n coverage (the
+ * other two: Login, Dashboard — everything else in the web app,
+ * including its own sidebar, is hardcoded English too). Retrofitted
+ * with real `t()` calls to match — see the README's "i18n coverage"
+ * note for why this scope, not a 30-screen retrofit, is the actual
+ * parity target.
  */
 export default function PayablesScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
   const [suppliers, setSuppliers] = useState<PayablesSupplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +68,9 @@ export default function PayablesScreen() {
       const { suppliers } = await api.payablesBySupplier();
       setSuppliers(suppliers);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load failed');
+      setError(e instanceof Error ? e.message : t('common.loadFailed'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -100,10 +103,10 @@ export default function PayablesScreen() {
         <Pressable onPress={() => navigation.openDrawer()} hitSlop={12}>
           <Menu size={22} color={colors.textStrong} />
         </Pressable>
-        <Text style={styles.topBarTitle}>Payables</Text>
+        <Text style={styles.topBarTitle}>{t('payables.title')}</Text>
         <View style={{ width: 22 }} />
       </View>
-      <Text style={styles.subtitle}>What you owe suppliers for unpaid raw-material receipts.</Text>
+      <Text style={styles.subtitle}>{t('payables.subtitle')}</Text>
 
       {error ? (
         <View style={{ paddingHorizontal: spacing[4] }}>
@@ -118,10 +121,10 @@ export default function PayablesScreen() {
               <IndianRupee size={20} color={colors.neutral0} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.totalLabel}>TOTAL PAYABLE</Text>
+              <Text style={styles.totalLabel}>{t('payables.totalPayable').toUpperCase()}</Text>
               <Text style={styles.totalValue}>₹{fmt(grandTotal)}</Text>
             </View>
-            <Text style={styles.totalSupplierCount}>{suppliers.length} supplier{suppliers.length === 1 ? '' : 's'}</Text>
+            <Text style={styles.totalSupplierCount}>{t('common.supplier', { count: suppliers.length })}</Text>
           </Card>
         </View>
       ) : null}
@@ -131,7 +134,7 @@ export default function PayablesScreen() {
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : suppliers.length === 0 ? (
-        <EmptyState title="All clear — nothing owed" icon={<CheckCircle2 size={32} color={colors.success700} />} />
+        <EmptyState title={t('payables.allClear')} icon={<CheckCircle2 size={32} color={colors.success700} />} />
       ) : (
         <FlatList
           data={suppliers}
@@ -141,7 +144,9 @@ export default function PayablesScreen() {
             <Pressable style={styles.supplierRow} onPress={() => setDrillSupplier(item)}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.supplierName}>{item.supplier_name}</Text>
-                <Text style={styles.metaText}>{item.supplier_code} · {item.unpaid_count} unpaid receipt{item.unpaid_count === 1 ? '' : 's'}</Text>
+                <Text style={styles.metaText}>
+                  {item.supplier_code} · {t('payables.unpaidReceipts', { count: item.unpaid_count })}
+                </Text>
               </View>
               <Text style={styles.supplierAmount}>₹{fmt(item.unpaid_total)}</Text>
             </Pressable>
@@ -153,6 +158,7 @@ export default function PayablesScreen() {
 }
 
 function SupplierDrillDown({ supplier, onBack }: { supplier: PayablesSupplier; onBack: () => void }) {
+  const { t } = useTranslation();
   const [receipts, setReceipts] = useState<PayablesReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -164,8 +170,9 @@ function SupplierDrillDown({ supplier, onBack }: { supplier: PayablesSupplier; o
       const { receipts } = await api.payablesForSupplier(supplier.supplier_id);
       setReceipts(receipts);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Load failed');
+      setError(e instanceof Error ? e.message : t('common.loadFailed'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier.supplier_id]);
 
   useEffect(() => {
@@ -178,13 +185,13 @@ function SupplierDrillDown({ supplier, onBack }: { supplier: PayablesSupplier; o
       <View style={styles.topBar}>
         <Pressable onPress={onBack} hitSlop={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
           <ChevronLeft size={20} color={colors.textStrong} />
-          <Text style={styles.backText}>Payables</Text>
+          <Text style={styles.backText}>{t('payables.allPayables')}</Text>
         </Pressable>
         <View style={{ width: 22 }} />
       </View>
       <Text style={styles.pageTitle}>{supplier.supplier_name}</Text>
       <Text style={styles.subtitle}>
-        {supplier.supplier_code} · {supplier.unpaid_count} unpaid · ₹{fmt(supplier.unpaid_total)} outstanding
+        {supplier.supplier_code} · {t('payables.unpaidReceipts', { count: supplier.unpaid_count })} · ₹{fmt(supplier.unpaid_total)} {t('payables.outstanding')}
       </Text>
 
       {error ? (
@@ -198,7 +205,7 @@ function SupplierDrillDown({ supplier, onBack }: { supplier: PayablesSupplier; o
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : receipts.length === 0 ? (
-        <EmptyState title="Nothing unpaid for this supplier" icon={<CheckCircle2 size={32} color={colors.success700} />} />
+        <EmptyState title={t('payables.noUnpaidForSupplier')} icon={<CheckCircle2 size={32} color={colors.success700} />} />
       ) : (
         <FlatList
           data={receipts}
@@ -211,11 +218,11 @@ function SupplierDrillDown({ supplier, onBack }: { supplier: PayablesSupplier; o
                 <Text style={styles.metaText}>
                   {fmt(item.quantity, 3)} {item.unit} × ₹{fmt(item.unit_rate)} · {formatDate(item.receipt_date)}
                 </Text>
-                <Text style={styles.metaText}>Inv {item.supplier_invoice_number}</Text>
+                <Text style={styles.metaText}>{t('payables.invoiceLabel')} {item.supplier_invoice_number}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: spacing[2] }}>
                 <Text style={styles.totalValue}>₹{fmt(item.line_total)}</Text>
-                <Button label="Pay" onPress={() => setPaying(item)} size="sm" icon={<Wallet size={12} color={colors.neutral0} />} />
+                <Button label={t('payables.pay')} onPress={() => setPaying(item)} size="sm" icon={<Wallet size={12} color={colors.neutral0} />} />
               </View>
             </View>
           )}
@@ -244,12 +251,21 @@ function PayForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [mode, setMode] = useState<PaymentMode>('upi');
   const [date, setDate] = useState(todayIso());
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
+
+  const PAYMENT_MODES: { label: string; value: PaymentMode }[] = [
+    { label: t('payables.mode.upi'), value: 'upi' },
+    { label: t('payables.mode.bank'), value: 'bank' },
+    { label: t('payables.mode.cash'), value: 'cash' },
+    { label: t('payables.mode.cheque'), value: 'cheque' },
+    { label: t('payables.mode.other'), value: 'other' },
+  ];
 
   async function onSubmit() {
     setErr('');
@@ -265,7 +281,7 @@ function PayForm({
       });
       onSaved();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Save failed');
+      setErr(e instanceof Error ? e.message : t('common.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -274,7 +290,7 @@ function PayForm({
   return (
     <KeyboardAvoidingView style={styles.modalScreen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Record payment</Text>
+        <Text style={styles.modalTitle}>{t('payables.recordPayment')}</Text>
         <Pressable onPress={onClose} hitSlop={12}>
           <X size={22} color={colors.textStrong} />
         </Pressable>
@@ -284,25 +300,25 @@ function PayForm({
 
         <Card style={styles.summaryCard} noPadding>
           <View style={{ padding: spacing[3] }}>
-            <Text style={styles.summaryEyebrow}>PAYING</Text>
+            <Text style={styles.summaryEyebrow}>{t('payables.paying').toUpperCase()}</Text>
             <Text style={styles.summaryName}>{supplier.supplier_name}</Text>
             <Text style={styles.metaText}>
-              Receipt <Text style={styles.mono}>{receipt.receipt_number}</Text> · Invoice <Text style={styles.mono}>{receipt.supplier_invoice_number}</Text>
+              {t('payables.receiptLabel')} <Text style={styles.mono}>{receipt.receipt_number}</Text> · {t('payables.invoiceLabel')} <Text style={styles.mono}>{receipt.supplier_invoice_number}</Text>
             </Text>
             <View style={styles.summaryAmountRow}>
-              <Text style={styles.metaText}>Amount</Text>
+              <Text style={styles.metaText}>{t('payables.amount')}</Text>
               <Text style={styles.summaryAmount}>₹{fmt(receipt.line_total)}</Text>
             </View>
-            <Text style={styles.hintText}>Full receipt amount only — partial payments aren't supported here.</Text>
+            <Text style={styles.hintText}>{t('payables.fullAmountOnly')}</Text>
           </View>
         </Card>
 
-        <Select label="Payment mode *" value={mode} options={PAYMENT_MODES} onChange={(v) => setMode(v as PaymentMode)} />
-        <TextField label="Payment date *" value={date} onChangeText={setDate} placeholder={todayIso()} />
-        <TextField label="Reference" value={reference} onChangeText={setReference} placeholder="Cheque no. / UPI txn ID" />
-        <TextField label="Notes" value={notes} onChangeText={setNotes} multiline numberOfLines={2} />
+        <Select label={`${t('payables.paymentMode')} *`} value={mode} options={PAYMENT_MODES} onChange={(v) => setMode(v as PaymentMode)} />
+        <TextField label={`${t('payables.paymentDate')} *`} value={date} onChangeText={setDate} placeholder={todayIso()} />
+        <TextField label={t('payables.reference')} value={reference} onChangeText={setReference} placeholder={t('payables.referencePlaceholder')} />
+        <TextField label={t('common.notes')} value={notes} onChangeText={setNotes} multiline numberOfLines={2} />
 
-        <Button label={busy ? 'Saving…' : 'Mark paid'} onPress={onSubmit} loading={busy} fullWidth />
+        <Button label={busy ? t('common.saving') : t('payables.markPaid')} onPress={onSubmit} loading={busy} fullWidth />
         <View style={{ height: spacing[8] }} />
       </ScrollView>
     </KeyboardAvoidingView>
