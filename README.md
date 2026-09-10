@@ -8,13 +8,18 @@ Receipts, Payables, Sales, Salaries/SalaryDetail; **Phase 3** — GST
 Report, P&L, Cash Flow, Payment Follow-up (Receivables), Audit Trail;
 **Phase 4** — RoleGate navigation guard, offline banner, app
 icon/splash assets; and an **audit pass** — a full page-by-page,
-method-by-method, type-by-type diff against the web app, which found
-and fixed a real permissions bug and two missing screens (Dashboard,
-Settings), and surfaced two larger gaps intentionally left for a
-follow-up rather than rushed (see "Audit pass" below). The whole
-project type-checks with zero errors and zero unused locals/params
-(`npx tsc --noEmit` and `--noUnusedLocals --noUnusedParameters` both
-exit clean).
+method-by-method, type-by-type diff against the web app, done in two
+rounds. The first found and fixed a real permissions bug, two missing
+screens (Dashboard, Settings), and a missing Supplier Ledger view; the
+second built out the one gap from the first round large enough to
+defer — Job Work's entire "Activity" tab (dispatch/receive/balances/
+payables/account drill-down), previously just a master list. One item
+remains intentionally deferred: i18n is wired up (full key parity,
+`LanguageToggle` works) but not actually called from any screen past
+Login — see "Audit pass" below for why that's its own project rather
+than a quick add. The whole project type-checks with zero errors and
+zero unused locals/params (`npx tsc --noEmit` and `--noUnusedLocals
+--noUnusedParameters` both exit clean).
 
 ## What's here
 
@@ -62,7 +67,7 @@ src/
                                  RootNavigator, not used directly by screens)
     crud/
       MasterCrudScreen.tsx      generic list+search+create/edit screen
-                                 driving 7 of the 10 Phase 1 pages
+                                 driving 6 of the 10 Phase 1 pages
                                  (+ Equipment Master, with readOnly)
       FieldForm.tsx              renders a form from a FieldConfig[]
       types.ts                   FieldConfig type
@@ -79,11 +84,15 @@ src/
       OperatorsScreen.tsx      │ Phase 1 — all built on MasterCrudScreen,
       CustomersScreen.tsx      │ ~30-60 lines each (field config + api calls)
       EquipmentMasterScreen.tsx│ (Equipment Master adds readOnly for
-      OverheadsScreen.tsx      │  non-superadmin — see "Audit pass" below)
-      JobWorkScreen.tsx        ┘ (master list only — see scoping note below)
+      OverheadsScreen.tsx      ┘  non-superadmin — see "Audit pass" below)
       SuppliersScreen.tsx      Audit-pass rebuild — bespoke (was
                                  MasterCrudScreen) for the per-supplier
                                  Ledger view; see "Audit pass" below
+      JobWorkScreen.tsx        Audit-pass rebuild — bespoke (was
+                                 MasterCrudScreen, master list only);
+                                 now the full Activity tab too — dispatch,
+                                 receive, balances, payables, account
+                                 drill-down; see "Audit pass" below
       StockAlertsScreen.tsx    bespoke — read-only report, two tabs
       TenantsScreen.tsx        bespoke — impersonation-based edit flow
       BomScreen.tsx / BomEditScreen.tsx      Phase 2b — recipe editor
@@ -165,23 +174,30 @@ fixed:
   wasn't worth complicating a component 7 other simple CRUD pages
   share. `api.ts` picked up `SupplierLedger`/`SupplierLedgerLine` and
   `supplierLedger()`.
+- **Job Work's "Activity" tab — the big one.** Only the Job Worker
+  master list (create/edit contract-manufacturer profiles) existed;
+  the entire running-account sub-system was missing. `JobWorkScreen.tsx`
+  was rebuilt from that plain master-list wrapper into the full ported
+  page: two tabs (Activity / Job Workers), a Dispatch RM form
+  (multi-line, validates each line against on-hand stock before
+  submit), a Receive FG form (multi-line RM consumption with
+  consumed/wastage/returned per material, live conversion-charge
+  preview), three Activity sub-views (FG Receipts with pay-per-receipt,
+  RM Dispatches with reversal, RM-at-CMO stock balances), a payables-
+  across-all-CMOs warning banner, and a per-worker Account drill-down
+  (RM balance at that CMO + a dispatch/receipt timeline). `api.ts`
+  picked up `JwDispatch`/`JwDispatchItem`/`JwReceipt`/`JwReceiptItem`/
+  `JwAccount`/`CmoBalance`/`JwPayable` and the full
+  `listJwDispatches`/`createJwDispatch`/`reverseJwDispatch`/
+  `listJwReceipts`/`createJwReceipt`/`payJwReceipt`/`jwAccount`/
+  `jwCmoBalances`/`jwPayables` set — nine methods, none of which
+  existed before this pass. This was the single largest addition since
+  the original Phase 2b build (Sales/Receipts/Payables/Salaries) —
+  comparable in scope to that whole batch combined, not a quick add.
 
-**Two things this audit found and deliberately did *not* fix in this
-pass — both large enough to deserve their own effort rather than a
-rushed add-on:**
+**One thing this audit found and deliberately did *not* fix — large
+enough to deserve its own effort rather than a rushed add-on:**
 
-- **Job Work's "Activity" tab.** Only the Job Worker master list
-  (create/edit contract-manufacturer profiles) is built — matching the
-  original migration plan's Phase 1 scope, but a real gap against the
-  *web app itself*. What's missing: dispatching RM to a job worker
-  (multi-line), receiving FG back with per-material consumed/wastage/
-  returned tracking, an "RM at CMO" balance view, a payables-per-
-  worker view, pay-per-receipt, and reversible dispatches. Comparable
-  in size to the whole Sales + Receipts build combined — `JwDispatch`/
-  `JwReceipt`/`JwAccount`/`CmoBalance`/`JwPayable` types and
-  `createJwDispatch`/`createJwReceipt`/`listJwDispatches`/
-  `listJwReceipts`/`jwCmoBalances`/`jwPayables`/`payJwReceipt`/
-  `reverseJwDispatch` don't exist in this `api.ts` yet.
 - **i18n is wired up but not actually used past Login.** `en.json`/
   `hi.json` have full key parity with the web app (verified: 199/199
   keys match exactly, both languages), and `LanguageToggle` works —
@@ -190,10 +206,11 @@ rushed add-on:**
   way consistently across every prior session. The web app, by
   contrast, calls `t()` throughout — Dashboard alone has ~30 calls,
   and even a simple page like Overheads has 9. Retrofitting `t()` into
-  ~29 already-built screens is its own project, comparable in scope to
-  Job Work's Activity tab, and was deliberately left alone rather than
-  making the two new screens in this pass (`DashboardScreen.tsx`,
-  `SettingsScreen.tsx`) the only internationalized ones — that would
+  ~30 already-built screens is its own project — comparable in scope
+  to what Job Work's Activity tab was before this pass — and was
+  deliberately left alone rather than making the newest screens
+  (`DashboardScreen.tsx`, `SettingsScreen.tsx`, the rebuilt
+  `JobWorkScreen.tsx`) the only internationalized ones, which would
   make the inconsistency *harder* to spot later, not easier. They use
   hardcoded English too, matching every other screen, until a
   dedicated i18n pass covers the whole app at once.
@@ -477,13 +494,10 @@ deactivate/delete button too).
 
 ## Phase 1 scoping notes (read before building against these)
 
-- **Job Workers**: only the master list (create/edit job worker
-  profiles) is built. The web app's "Activity" tab on the same page —
-  dispatching raw material to a job worker, recording finished-goods
-  receipts back, running balances/payables — is a separate
-  transactional sub-system. See "Audit pass" above for the full
-  scope of what's missing and why it's deliberately deferred rather
-  than skipped.
+- **Job Workers**: the master list (create/edit job worker profiles)
+  was the only Phase 1 scope. The web app's "Activity" tab — dispatch/
+  receive/balances/payables — was a real gap for a while but is now
+  built too; see "Audit pass" above. `JobWorkScreen.tsx` covers both.
 - **Overheads**: every overhead created here is "General" (`fg_id:
   null`). The web app also supports linking one overhead to a specific
   Finished Product — that selector needs the Finished Products list
@@ -497,15 +511,16 @@ deactivate/delete button too).
 
 ## The MasterCrudScreen pattern
 
-7 of the 10 Phase 1 pages are ~30-60 line files that just configure
+6 of the 10 Phase 1 pages are ~30-60 line files that just configure
 `MasterCrudScreen` with:
 - a `FieldConfig[]` describing the form (label, type, options)
 - the matching `api.list*`/`create*`/`update*`/`deactivate*` functions
 - how to render each row's title/subtitle/badge
 
-(An 8th, Equipment Master, also uses it but adds `readOnly` — see
-"Audit pass" above. Suppliers used to be a 9th but was rebuilt bespoke
-for its Ledger view, also covered there.)
+(Equipment Master also uses it but adds `readOnly`. Suppliers and Job
+Work used to as well but were both rebuilt bespoke during the audit
+pass — Suppliers for its Ledger view, Job Work for its entire Activity
+tab — see "Audit pass" above for both.)
 
 Raw Materials and Finished Products (Phase 2a) also fit this shape,
 with an extra field or two. Everything from Production onward
@@ -569,6 +584,15 @@ one-time `eas build` trigger.
   button and row-tap-to-edit are both gone — this was the actual bug
   this audit found, so it's worth specifically re-verifying rather
   than assuming the fix landed correctly.
+- Job Work: full cycle end to end — dispatch RM to a worker (confirm
+  it's rejected if quantity exceeds on-hand stock), receive FG back
+  against that dispatch with a consumed/wastage/returned split,
+  confirm the conversion charge preview matches what gets saved, mark
+  the receipt paid, and check the worker's Account drill-down shows
+  both the dispatch and receipt in its timeline with the RM balance
+  at that CMO reflecting the consumption. Also try reversing an
+  unconsumed dispatch and confirm the stock warning behavior if you
+  reverse one that's already been partly drawn against.
 
 ## Phase 4 — RoleGate, offline banner, app icon/splash
 
@@ -674,3 +698,8 @@ here can substitute for:
   real screen (the part this change added).
 - **Real app icon/splash art** — the placeholders unblock the build
   but aren't final branding.
+- **The i18n retrofit** — see "Audit pass" above. Every screen works
+  correctly in English; none of them actually respect a language
+  switch yet, despite the locale files and `LanguageToggle` being
+  ready. This is the one open item left from a genuinely thorough
+  audit, not an oversight — it's sized like its own project.
