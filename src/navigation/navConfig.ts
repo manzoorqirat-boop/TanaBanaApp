@@ -57,13 +57,13 @@ export function isGroup(e: NavEntry): e is NavGroup {
  */
 export const NAV: NavEntry[] = [
   { screen: 'Dashboard', icon: LayoutDashboard, label: 'Dashboard', implemented: true },
-  { screen: 'Pnl', icon: TrendingUp, label: 'P&L' },
-  { screen: 'GstReport', icon: Landmark, label: 'GST Report', roles: ['owner', 'superadmin', 'accounts'] },
-  { screen: 'CashFlow', icon: Wallet, label: 'Cash-flow', roles: ['owner', 'superadmin', 'accounts'] },
+  { screen: 'Pnl', icon: TrendingUp, label: 'P&L', implemented: true },
+  { screen: 'GstReport', icon: Landmark, label: 'GST Report', roles: ['owner', 'superadmin', 'accounts'], implemented: true },
+  { screen: 'CashFlow', icon: Wallet, label: 'Cash-flow', roles: ['owner', 'superadmin', 'accounts'], implemented: true },
   { screen: 'EquipmentMaster', icon: Wrench, label: 'Equipment Master', implemented: true },
   { screen: 'StockAlerts', icon: AlertTriangle, label: 'Stock Alerts', implemented: true },
   { screen: 'JobWork', icon: Factory, label: 'Contract Mfg', implemented: true },
-  { screen: 'Receivables', icon: PhoneCall, label: 'Payment Follow-up', roles: ['owner', 'superadmin', 'accounts'] },
+  { screen: 'Receivables', icon: PhoneCall, label: 'Payment Follow-up', roles: ['owner', 'superadmin', 'accounts'], implemented: true },
   {
     groupId: 'operations', icon: Factory, label: 'Operations',
     children: [
@@ -106,7 +106,7 @@ export const NAV: NavEntry[] = [
     ],
   },
   { screen: 'Settings', icon: SettingsIcon, label: 'Settings' },
-  { screen: 'AuditTrail', icon: ScrollText, label: 'Audit Trail', roles: ['owner', 'superadmin'] },
+  { screen: 'AuditTrail', icon: ScrollText, label: 'Audit Trail', roles: ['owner', 'superadmin'], implemented: true },
   { screen: 'Tenants', icon: Building2, label: 'Tenants', roles: ['superadmin'], implemented: true },
 ];
 
