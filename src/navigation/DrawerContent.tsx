@@ -32,7 +32,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         <View style={styles.brandMark}>
           <Factory size={20} color={colors.accent} />
         </View>
-        <Text style={styles.brandName}>QMfg</Text>
+        <Text style={styles.brandName}>TanaBana</Text>
       </View>
 
       <ScrollView style={styles.nav}>
