@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { secureStorage, prefsStorage } from './storage';
 
 /**
- * QMfg API client — ported from QMfg-Frontend/src/lib/api.ts.
+ * TanaBana API client — ported from QMfg-Frontend/src/lib/api.ts.
  *
  * Conventions (unchanged from the web app):
  *   - All requests go through request<T>(), which:
@@ -31,9 +31,13 @@ const BASE_URL = (
 ).replace(/\/$/, '');
 
 // ─── Token storage ──────────────────────────────────────────────────
-const TOKEN_KEY = 'qmfg_token';
-const REFRESH_KEY = 'qmfg_refresh';
-const ACTIVE_COMPANY_KEY = 'qmfg_active_company';
+// Renamed from qmfg_* to tanabana_* to match the app rename. Harmless
+// pre-launch (no real users yet); if this were already shipped, an
+// app update with this change would silently log everyone out once
+// (old key no longer read), not corrupt anything.
+export const TOKEN_KEY = 'tanabana_token';
+const REFRESH_KEY = 'tanabana_refresh';
+const ACTIVE_COMPANY_KEY = 'tanabana_active_company';
 
 async function getToken(): Promise<string | null> {
   return secureStorage.getItem(TOKEN_KEY);
