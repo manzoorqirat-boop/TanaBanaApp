@@ -24,8 +24,14 @@ exit clean).
 
 ```
 App.tsx                        entry point: i18n boot, providers, nav
-app.config.ts                  Expo config; API URL via EXPO_PUBLIC_API_URL
-eas.json                       EAS build profiles (preview/production)
+app.config.ts                  Expo config; API URL via EXPO_PUBLIC_API_URL;
+                                extra.eas.projectId filled in by `eas init`
+eas.json                       EAS build profiles (preview/production),
+                                remote versionCode tracking, submit config
+.easignore                     keeps build uploads to just what's needed
+.github/workflows/
+  eas-build.yml                trigger EAS builds from GitHub's UI —
+                                 no local shell needed once EXPO_TOKEN is set
 assets/                        icon.png, splash.png, adaptive-icon.png —
                                  Phase 4 placeholders (see "App icon/splash"
                                  below), swap for real branding before shipping
@@ -598,25 +604,61 @@ each one does differently and why.
 
 You don't have local CLI access, so the practical path is: push this
 to a GitHub repo, then run builds through **EAS's cloud build service**
-(no local Android SDK needed) — either via the Expo website's GitHub
-integration, or from Codespaces/any machine with `npx` for the
-one-time `eas build` trigger.
+(no local Android SDK needed) — via Codespaces/any machine with `npx`
+for the one-time setup, then either the Expo website or the included
+GitHub Actions workflow for every build after that.
 
-1. Create an Expo account + project: https://expo.dev
-2. Set your API URL as a secret per environment (Expo dashboard →
-   your project → Environment variables), matching the `EXPO_PUBLIC_API_URL`
-   placeholders in `eas.json`. Point `preview` at whatever
-   Railway URL you're using for TanaBana's backend right now.
-3. Push this repo, then trigger a build:
+**One-time setup:**
+
+1. Create an Expo account: https://expo.dev
+2. From Codespaces (or any machine with `npx`), log in and link the
+   project — this is the step that turns `app.config.ts`'s
+   `extra.eas.projectId: 'YOUR_EAS_PROJECT_ID'` placeholder into a
+   real ID, which every `eas build` call needs to work:
    ```
-   eas build --platform android --profile preview
+   npx eas-cli login
+   npx eas-cli init
    ```
-   (via Expo's website "Build" tab if you don't have a shell handy —
-   it can build directly from a connected GitHub repo.)
-4. Install the resulting `.apk` on a device via the link EAS gives you,
-   or use **Expo Go** during active development for faster iteration
-   (`npx expo start`, scan the QR code — works from Codespaces too, as
-   long as your phone can reach the tunnel URL).
+   `eas init` edits `app.config.ts` for you — commit that change.
+3. Set your API URL as a secret per environment (Expo dashboard →
+   your project → Environment variables), matching the
+   `EXPO_PUBLIC_API_URL` placeholders in `eas.json`. Point `preview`
+   at whatever Railway URL you're using for TanaBana's backend right
+   now.
+4. *(Optional, for triggering builds from GitHub instead of a shell)*
+   Generate a token — expo.dev → account settings → Access Tokens —
+   and add it as a repo secret named `EXPO_TOKEN` (GitHub repo →
+   Settings → Secrets and variables → Actions). This is what
+   `.github/workflows/eas-build.yml` uses.
+
+**Every build after that**, pick one:
+- **From GitHub**: Actions tab → "EAS Build" → Run workflow → choose
+  `preview` or `production`. No shell needed at all once the one-time
+  setup above is done.
+- **From a shell** (Codespaces or otherwise):
+  ```
+  npx eas-cli build --platform android --profile preview
+  ```
+- **From the Expo website's Build tab** — it can also build directly
+  from a connected GitHub repo without any local command.
+
+Either way, `eas.json`'s `"appVersionSource": "remote"` means EAS
+tracks the Android `versionCode` for you across builds — no manual
+bumping required, and `production`'s `autoIncrement: true` handles the
+increment automatically on every production build.
+
+Install the resulting `.apk`/`.aab` on a device via the link EAS
+gives you, or use **Expo Go** during active development for faster
+iteration (`npx expo start`, scan the QR code — works from Codespaces
+too, as long as your phone can reach the tunnel URL).
+
+**When you're ready for the Play Store**, `eas.json`'s
+`submit.production` is pre-configured to target the `internal` testing
+track. Running `npm run submit:android` (or `eas submit --platform
+android --profile production`) will prompt you interactively for Play
+Console credentials the first time — a service account JSON key from
+Google Play Console → Setup → API access, which isn't something that
+can be set up from here since it requires your Play Console account.
 
 ## What to check once it's building
 
@@ -757,9 +799,11 @@ is built. What remains is exactly what no amount of code review from
 here can substitute for:
 
 - **An actual EAS build on a real device.** Nothing in this repo has
-  run outside a TypeScript compiler yet. Push to GitHub, run
-  `eas build --platform android --profile preview` (see "Setup"
-  above), and install the result on a phone.
+  run outside a TypeScript compiler yet. The config is ready — project
+  ID placeholder, build profiles, remote version tracking, a GitHub
+  Actions trigger — but "ready" and "run" are different things. Do the
+  one-time `eas init` (see "Setup" above), then trigger a `preview`
+  build and install the result on a phone.
 - **The GSTR-1 share-sheet flow specifically** — `expo-sharing`'s
   behavior can differ between Expo Go, a simulator, and a real device;
   this is the one Phase 3 feature that reaches outside pure UI code
