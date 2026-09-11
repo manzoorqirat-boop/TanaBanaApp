@@ -93,6 +93,12 @@ export default function LoginScreen() {
             size="sm"
             onPress={() => navigation.navigate('ForgotPassword')}
           />
+          <Button
+            label="First time here? Activate your account"
+            variant="ghost"
+            size="sm"
+            onPress={() => navigation.navigate('ActivateAccount')}
+          />
 
           <View style={{ height: spacing[3] }} />
 
