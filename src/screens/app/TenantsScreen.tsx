@@ -146,11 +146,10 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
   const [stateCode, setStateCode] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
-  const [ownerPassword, setOwnerPassword] = useState('');
 
   async function onSubmit() {
     setError('');
-    if (!companyName || !ownerName || !ownerEmail || !ownerPassword) {
+    if (!companyName || !ownerName || !ownerEmail) {
       setError('Company name and owner details are required.');
       return;
     }
@@ -166,7 +165,6 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
         owner: {
           name: ownerName,
           email: ownerEmail,
-          password: ownerPassword,
         },
       });
       onCreated();
@@ -197,7 +195,10 @@ function CreateTenantModal({ onClose, onCreated }: { onClose: () => void; onCrea
         <Text style={styles.sectionLabel}>Owner account</Text>
         <TextField label="Owner name *" value={ownerName} onChangeText={setOwnerName} />
         <TextField label="Owner email *" value={ownerEmail} onChangeText={setOwnerEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextField label="Owner password *" value={ownerPassword} onChangeText={setOwnerPassword} secureTextEntry />
+        <Text style={styles.hintText}>
+          No password to set here — the owner gets a 6-digit activation code by email and chooses their own
+          password on first login.
+        </Text>
 
         <Button label={busy ? 'Creating…' : 'Create tenant'} onPress={onSubmit} loading={busy} fullWidth />
       </ScrollView>
@@ -347,4 +348,5 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: fontSize.lg, fontWeight: '700', color: colors.textStrong },
   modalContent: { padding: spacing[4] },
   sectionLabel: { fontSize: fontSize.sm, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing[2], marginTop: spacing[2] },
+  hintText: { fontSize: fontSize.xs, color: colors.textMuted, marginBottom: spacing[3], lineHeight: 16 },
 });
