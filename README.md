@@ -620,11 +620,12 @@ GitHub Actions workflow for every build after that.
    npx eas-cli init
    ```
    `eas init` edits `app.config.ts` for you — commit that change.
-3. Set your API URL as a secret per environment (Expo dashboard →
-   your project → Environment variables), matching the
-   `EXPO_PUBLIC_API_URL` placeholders in `eas.json`. Point `preview`
-   at whatever Railway URL you're using for TanaBana's backend right
-   now.
+3. `eas.json` already points both `preview` and `production` at the
+   real backend — `https://qmfgbackend.qmsofts.com` — so this step is
+   only needed if you want a *separate* staging backend later. If/when
+   you do, set the API URL as a secret per environment (Expo dashboard
+   → your project → Environment variables) and update the
+   `EXPO_PUBLIC_API_URL` values in `eas.json` accordingly.
 4. *(Optional, for triggering builds from GitHub instead of a shell)*
    Generate a token — expo.dev → account settings → Access Tokens —
    and add it as a repo secret named `EXPO_TOKEN` (GitHub repo →
