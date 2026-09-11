@@ -10,7 +10,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-staging-api.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://qmfgbackend.qmsofts.com"
       }
     },
     "production": {
@@ -19,7 +19,7 @@
         "autoIncrement": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-production-api.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://qmfgbackend.qmsofts.com"
       }
     }
   },
