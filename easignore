@@ -1,0 +1,15 @@
+# Files EAS shouldn't upload as part of the build context.
+# EAS falls back to .gitignore if this file is absent, but being
+# explicit here means build uploads stay small and fast even if
+# .gitignore ever changes for unrelated reasons.
+#
+# Deliberately not excluding android/ or ios/ — this project is pure
+# managed workflow (no native folders checked in); if that ever
+# changes (e.g. someone runs `expo prebuild` locally), those folders
+# would actually be needed by the build, not safe to blanket-ignore.
+
+node_modules/
+.expo/
+.git/
+*.log
+.DS_Store
