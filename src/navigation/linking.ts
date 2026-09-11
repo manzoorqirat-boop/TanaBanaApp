@@ -1,22 +1,32 @@
 import type { LinkingOptions } from '@react-navigation/native';
 
 /**
- * Handles the password-reset email link. The backend's email currently
- * points at the web app's URL (?token=...) — coordinate with that
- * template to either add a tanabana:// deep link alongside it, or
- * point to a small hosted redirect page that opens this scheme on
- * mobile. Until that's updated, users can still paste/open the link
- * on the web app to reset, then log in here as normal.
+ * Handles the password-reset email link. Confirmed against the real
+ * backend (routes/auth.js): it builds the link as
+ * `${APP_URL}/reset-password?token=...`, where APP_URL is the real
+ * frontend domain — https://qmfg.qmsofts.com in production. So the
+ * prefix below matches that exactly, not an invented domain.
  *
- * The scheme below was renamed from qmfg:// to tanabana:// to match
- * the app rename — this only takes effect on your *next* build. If a
+ * This only opens the app directly if the OS is configured to treat
+ * that domain as a universal/app link for this app (Android App
+ * Links needs an assetlinks.json served from qmfg.qmsofts.com,
+ * asserting this app's package + signing cert — real backend/infra
+ * work, not something set from here). Until that's set up, the link
+ * just opens the web app as normal, which still works fine — users
+ * can reset on the web and log in here after. The tanabana:// custom
+ * scheme below works immediately with no server-side setup, but
+ * nothing currently generates a tanabana:// link — only the web
+ * ${APP_URL}/reset-password link exists today.
+ *
+ * The scheme was renamed from qmfg:// to tanabana:// to match the app
+ * rename — this only takes effect on your *next* build. If a
  * production build using the old qmfg:// scheme is already installed
  * on real devices, its deep links keep working (the old build has the
  * old scheme baked in) but won't match this repo until those users
  * update. Not a concern pre-launch.
  */
 export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
-  prefixes: ['tanabana://', 'https://app.qmsofts.com/tanabana'],
+  prefixes: ['tanabana://', 'https://qmfg.qmsofts.com'],
   config: {
     screens: {
       Auth: {
