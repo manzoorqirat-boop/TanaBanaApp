@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { Menu, ArrowDownCircle, ArrowUpCircle, Scale, FileJson, Download } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { api, type GstSummary } from '../../lib/api';
 import { TextField } from '../../components/ui/TextField';
@@ -72,13 +72,18 @@ export default function GstReportScreen() {
     setExporting(true); setExportMsg(''); setExportErr('');
     try {
       const { filename, data } = await api.downloadGstr1(exportPeriod);
-      const path = FileSystem.cacheDirectory + filename;
-      await FileSystem.writeAsStringAsync(path, JSON.stringify(data, null, 2));
+      // expo-file-system's SDK 57 API is class-based (File/Directory/
+      // Paths) instead of the old string-path + FileSystem.* function
+      // style — a real breaking change hit while upgrading from SDK 52,
+      // not a cosmetic rename. create() + write() are both synchronous.
+      const file = new File(Paths.cache, filename);
+      file.create({ overwrite: true, intermediates: true });
+      file.write(JSON.stringify(data, null, 2));
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(path, { mimeType: 'application/json', dialogTitle: filename });
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: filename });
         setExportMsg(`Ready to share: ${filename}`);
       } else {
-        setExportMsg(`Saved to ${path}`);
+        setExportMsg(`Saved to ${file.uri}`);
       }
     } catch (e) {
       setExportErr(e instanceof Error ? e.message : 'Export failed');
