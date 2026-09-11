@@ -1,0 +1,50 @@
+name: EAS Build
+
+# Manual trigger only, not on every push — EAS builds consume your
+# account's build minutes/quota, so this is opt-in from the Actions
+# tab rather than automatic. Pick a profile, click "Run workflow".
+#
+# One-time setup before this works:
+#   1. Generate a token: expo.dev → account settings → Access Tokens
+#   2. Add it as a repo secret named EXPO_TOKEN
+#      (GitHub repo → Settings → Secrets and variables → Actions)
+#   3. Fill in extra.eas.projectId in app.config.ts (see README "Setup")
+#
+# This matches the no-local-CLI workflow described in the README: push
+# to GitHub, then trigger builds from here instead of a terminal.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger EAS build
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
