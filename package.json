@@ -7,8 +7,10 @@
     "start": "expo start",
     "android": "expo start --android",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "build:android:preview": "eas build --platform android --profile preview",
-    "build:android:production": "eas build --platform android --profile production"
+    "build:android:production": "eas build --platform android --profile production",
+    "submit:android": "eas submit --platform android --profile production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
