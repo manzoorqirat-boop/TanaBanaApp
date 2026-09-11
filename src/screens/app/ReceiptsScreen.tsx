@@ -25,6 +25,7 @@ import {
 } from '../../lib/api';
 import { TextField } from '../../components/ui/TextField';
 import { Select } from '../../components/ui/Select';
+import { DatePicker } from '../../components/ui/DatePicker';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
@@ -425,9 +426,9 @@ function ReceiptForm({
         <TextField label="Rate (₹/unit) *" value={unitRate} onChangeText={setUnitRate} keyboardType="numeric" placeholder="0" />
         <GstRatePicker value={gstRate} onChange={setGstRate} />
 
-        <TextField label="Receipt date (YYYY-MM-DD)" value={receiptDate} onChangeText={setReceiptDate} placeholder={today} />
+        <DatePicker label="Receipt date" value={receiptDate} onChange={setReceiptDate} placeholder={today} />
         <TextField label="Supplier invoice # *" value={invoiceNumber} onChangeText={setInvoiceNumber} />
-        <TextField label="Invoice date (YYYY-MM-DD)" value={invoiceDate} onChangeText={setInvoiceDate} placeholder={today} />
+        <DatePicker label="Invoice date" value={invoiceDate} onChange={setInvoiceDate} placeholder={today} />
         <TextField label="Invoice total (₹, optional)" value={invoiceTotal} onChangeText={setInvoiceTotal} keyboardType="numeric" />
         <TextField label="Notes" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
 
@@ -503,8 +504,8 @@ function EditReceiptForm({
         ) : null}
 
         <TextField label="Supplier invoice #" value={invoiceNumber} onChangeText={setInvoiceNumber} />
-        <TextField label="Invoice date (YYYY-MM-DD)" value={invoiceDate} onChangeText={setInvoiceDate} />
-        <TextField label="Receipt date (YYYY-MM-DD)" value={receiptDate} onChangeText={setReceiptDate} />
+        <DatePicker label="Invoice date" value={invoiceDate} onChange={setInvoiceDate} />
+        <DatePicker label="Receipt date" value={receiptDate} onChange={setReceiptDate} />
         <TextField label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="numeric" />
         <TextField label="Rate (₹/unit)" value={unitRate} onChangeText={setUnitRate} keyboardType="numeric" />
         <GstRatePicker value={gstRate} onChange={setGstRate} />
