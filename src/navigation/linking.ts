@@ -1,29 +1,23 @@
 import type { LinkingOptions } from '@react-navigation/native';
 
 /**
- * Handles the password-reset email link. Confirmed against the real
- * backend (routes/auth.js): it builds the link as
- * `${APP_URL}/reset-password?token=...`, where APP_URL is the real
- * frontend domain — https://qmfg.qmsofts.com in production. So the
- * prefix below matches that exactly, not an invented domain.
+ * Mostly dormant now — kept as scaffolding for possible future deep
+ * links, but the reset-password flow it was built for doesn't need it
+ * anymore. Forgot-password used to e-mail a clickable
+ * `${APP_URL}/reset-password?token=...` link (confirmed against the
+ * real backend at the time); it now e-mails a 6-digit code instead
+ * (see routes/auth.js's forgot-password + ResetPasswordScreen.tsx),
+ * which the person types directly into the app — no link, no
+ * universal-link/App Links setup, no deep-linking dependency at all
+ * for this flow anymore.
  *
- * This only opens the app directly if the OS is configured to treat
- * that domain as a universal/app link for this app (Android App
- * Links needs an assetlinks.json served from qmfg.qmsofts.com,
- * asserting this app's package + signing cert — real backend/infra
- * work, not something set from here). Until that's set up, the link
- * just opens the web app as normal, which still works fine — users
- * can reset on the web and log in here after. The tanabana:// custom
- * scheme below works immediately with no server-side setup, but
- * nothing currently generates a tanabana:// link — only the web
- * ${APP_URL}/reset-password link exists today.
- *
- * The scheme was renamed from qmfg:// to tanabana:// to match the app
- * rename — this only takes effect on your *next* build. If a
- * production build using the old qmfg:// scheme is already installed
- * on real devices, its deep links keep working (the old build has the
- * old scheme baked in) but won't match this repo until those users
- * update. Not a concern pre-launch.
+ * The `https://qmfg.qmsofts.com` prefix and `reset-password` mapping
+ * are left in place in case opening that URL from a mobile browser
+ * should still land on this screen (it will, just with an empty email
+ * field to fill in rather than a pre-filled token) — but nothing
+ * currently generates a link pointing here. The tanabana:// custom
+ * scheme works immediately with no server-side setup if a real deep
+ * link is ever needed for something else.
  */
 export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   prefixes: ['tanabana://', 'https://qmfg.qmsofts.com'],
