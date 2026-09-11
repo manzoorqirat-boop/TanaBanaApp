@@ -1,6 +1,7 @@
 import { View, Text, Switch, StyleSheet } from 'react-native';
 import { TextField } from '../ui/TextField';
 import { Select } from '../ui/Select';
+import { DatePicker } from '../ui/DatePicker';
 import { colors, spacing, fontSize } from '../../theme/tokens';
 import type { FieldConfig } from './types';
 
@@ -45,6 +46,17 @@ export function FieldForm<TInput>({
               value={raw || null}
               options={field.options ?? []}
               onChange={(v) => onChange(field.key, v)}
+            />
+          );
+        }
+        if (field.type === 'date') {
+          return (
+            <DatePicker
+              key={field.key}
+              label={field.label + (field.required ? ' *' : '')}
+              value={raw}
+              onChange={(v) => onChange(field.key, v)}
+              placeholder={field.placeholder}
             />
           );
         }
