@@ -15,6 +15,13 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * Shared by login() and ActivateAccountScreen (after a successful
+   * verifyFirstLogin) — anywhere the backend hands back a fresh
+   * {accessToken, refreshToken, user} triple to establish a session
+   * from, without going through the email+password login endpoint.
+   */
+  setSession: (accessToken: string, refreshToken: string, sessionUser: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,14 +79,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  async function setSession(accessToken: string, refreshToken: string, sessionUser: User) {
+    await setToken(accessToken);
+    await setRefreshToken(refreshToken);
+    setUser(sessionUser);
+  }
+
   async function login(email: string, password: string) {
     const { accessToken, refreshToken, user: loggedInUser } = await api.login(
       email,
       password,
     );
-    await setToken(accessToken);
-    await setRefreshToken(refreshToken);
-    setUser(loggedInUser);
+    await setSession(accessToken, refreshToken, loggedInUser);
   }
 
   async function logout() {
@@ -89,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setSession }}>
       {children}
     </AuthContext.Provider>
   );
