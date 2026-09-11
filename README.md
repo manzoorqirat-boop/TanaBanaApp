@@ -1,4 +1,4 @@
-# TanaBana Mobile — all four phases complete, plus a post-launch audit pass
+# TanaBana Mobile — all four phases complete, plus a post-launch audit pass, plus an urgent SDK upgrade
 
 React Native/Expo port of QMfg-Frontend. **Phase 0** (auth, navigation
 shell, theme tokens, reusable primitives); **Phase 1** — 10 simple
@@ -22,9 +22,15 @@ link to a 6-digit code, and a brand-new first-login activation flow
 for superadmin-created accounts, which previously had their password
 set in plaintext by whoever created them. Neither is a web-app port —
 see "Brevo OTP" below for the full picture, including a spec-reading
-assumption worth double-checking. The whole project type-checks with
-zero errors and zero unused locals/params (`npx tsc --noEmit` and
-`--noUnusedLocals --noUnusedParameters` both exit clean).
+assumption worth double-checking. **Most recently: an urgent Expo SDK
+52→57 upgrade** — a routine SDK-requirements check found this project
+targeting an Android API level Google Play stopped accepting for new
+submissions/updates back on August 31, 2026. Upgraded and verified for
+real (not assumed clean) — see "Expo SDK 52→57 upgrade" below for
+what actually broke and what's still unverified. The whole project
+type-checks with zero errors and zero unused locals/params
+(`npx tsc --noEmit` and `--noUnusedLocals --noUnusedParameters` both
+exit clean).
 
 ## What's here
 
@@ -142,6 +148,109 @@ src/
                                  entirely missing, API layer already existed
 ```
 
+## Expo SDK 52→57 upgrade — Play Store compliance, verified not guessed
+
+**Why this happened.** A routine "check the Android SDK requirements"
+turned up something urgent: Google Play requires all new app
+submissions and updates to target **Android 16 (API level 36)** as of
+**August 31, 2026** — a deadline that had already passed by the time
+this was checked (confirmed directly against Google's Play Console
+help page, cross-checked against three independent sources). This
+project was on **Expo SDK 52** (November 2024), which defaults to
+`targetSdkVersion 35` — one level below what Google now requires.
+Nothing in this repo's own tooling could have caught this on its own;
+`npx tsc --noEmit` and `npx expo config` have no way to know about a
+Play Store policy page. Two paths existed: a fast `expo-build-properties`
+override to force API 36 without upgrading Expo itself (real risk of
+Android Gradle Plugin / Kotlin version mismatches on a stack as old as
+SDK 52 — multiple independent reports of exactly that failure mode),
+or a proper SDK upgrade to whichever version bundles API 36 natively.
+Went with the proper upgrade, verified empirically rather than
+assumed clean.
+
+**The target.** `npm view expo dist-tags` was checked directly against
+the npm registry rather than trusted from search results — confirmed
+`expo@latest` really is `57.0.21` right now, not stale training data.
+SDK 57 was chosen over the minimum-viable SDK 54 (the first version
+bundling API 36) for maximum runway before the next annual Play Store
+bump forces this again.
+
+**What actually broke, found by running the upgrade, not by guessing:**
+
+- **Version cascade.** Bumping `expo` alone in `package.json` and
+  running a plain `npm install` left `react-native` stuck on the old
+  0.76.5 — npm has no way to know the other 20+ `expo-*`/
+  `react-native-*` packages needed to move in lockstep. The normal
+  fix, `npx expo install --fix`, **could not run in this environment**
+  — it calls `api.expo.dev` to fetch the current version matrix, and
+  that domain isn't reachable from here (only npm registries are).
+  Worked around it by reading `node_modules/expo/bundledNativeModules.json`
+  directly — the same authoritative version map `expo install --fix`
+  itself uses internally, shipped inside the `expo` package, no
+  network call required. This turned out to be the *more* reliable
+  path anyway: a currently-open Expo GitHub issue (dated August 6,
+  2026) documents `api.expo.dev` advertising an `expo-sharing` version
+  that was never published to npm, which breaks `expo install --fix`
+  entirely — not just for that one package, for the whole run. All 23
+  packages were re-pinned to their exact `bundledNativeModules.json`
+  versions; `react-native-worklets` had to be added as a new direct
+  dependency — a peer requirement of `react-native-reanimated` v4 (a
+  major-version jump from v3) that v3 never needed. React Navigation
+  was pinned to the latest **stable** v7 line (`7.3.18`/`7.13.10`/
+  `7.18.10`) rather than the `next`-tagged `8.0.0-alpha` releases that
+  `npm view ... versions` surfaces alongside it.
+- **`app.config.ts`'s top-level `splash` key — gone.** Removed from
+  `ExpoConfig`'s type entirely; `tsc` caught this immediately.
+  Splash screen config now goes through the `expo-splash-screen`
+  config plugin instead — confirmed the exact prop shape against that
+  plugin's actual shipped `.d.ts` file rather than trusting
+  documentation snippets, which can lag a fast-moving SDK.
+- **`expo-file-system`'s entire API — replaced.** The
+  `FileSystem.cacheDirectory` / `FileSystem.writeAsStringAsync`
+  string-path style is gone completely, replaced with a class-based
+  `File`/`Directory`/`Paths` API (`new File(Paths.cache, name)` →
+  `.create()` → `.write()` → `.uri`). This hit the GST Report screen's
+  GSTR-1 export feature specifically — rewritten against the actual
+  installed package's type definitions, not assumed. `expo-sharing`'s
+  own API (`shareAsync(uri, options)`) turned out to be unchanged.
+
+**Checked and cleared, not just assumed safe:**
+- `lucide-react-native` 0.x→1.x's only breaking change is removing
+  trademarked brand icons (GitHub, Slack, Figma, etc.) — checked
+  against every icon actually imported anywhere in this codebase, none
+  match.
+- `react-i18next` 17.x requires `i18next >= 26.2.0` — checked its
+  exact peer dependency range and matched `i18next` to `^26.4.2`
+  accordingly, rather than bumping one and leaving the other stale.
+- TypeScript deliberately stayed on `5.9.3` rather than jumping to the
+  newly-released `7.x` — keeps this verification pass isolated to the
+  Expo SDK change, not stacked with an unrelated compiler major-version
+  jump.
+
+**What's verified:** a real `npm install` against the exact target
+versions (not a dry run), `npx tsc --noEmit` clean across the whole
+project with zero errors, and `npx expo-doctor` — 19 of 21 checks
+passed, including *"packages match versions required by installed
+Expo SDK"* (independent confirmation of the manual version-pinning)
+and *"meets version requirements for submission to app stores"* (the
+actual Play Store compliance check this whole upgrade exists for).
+The 2 failing checks both need `api.expo.dev`, unreachable from this
+sandbox — same wall that blocked `expo install --fix` outright.
+
+**What's not verified, and can't be from here:** `npx expo install
+--fix` itself (no fallback path the way `expo-doctor` has — it just
+can't run at all here), an actual `expo prebuild`/EAS build, and —
+the one that matters most — whether the app actually runs on a device
+or emulator. Clean `tsc --noEmit` plus a passing `expo-doctor` after a
+5-major-SDK-version jump is a real, multi-source signal, not a
+formality, but neither one boots the app. `react-native-reanimated`
+v4 in particular is worth deliberate attention on a real device: v4
+dropped support for the Legacy Architecture entirely (New Architecture
+only), which shouldn't be a new problem — Expo's New Architecture
+rollout was already underway back in SDK 52 — but "shouldn't be" and
+"confirmed working" are different claims, and only the second one
+counts before this ships.
+
 ## Brevo OTP: first-login activation + password reset
 
 Two different things, worth keeping separate in your head — same as
@@ -239,6 +348,26 @@ for context since the mobile app's contract depends on it):
 - Verified: `npx tsc --noEmit` and `--noUnusedLocals
   --noUnusedParameters` both clean across the whole project after
   these changes, same as every other pass in this README.
+
+**The web app needed the same fix, and initially didn't have it.**
+Changing the backend contract without checking every caller is exactly
+the kind of mistake this project's audit pass exists to catch —
+`pages/ResetPassword.tsx` was still sending `{token, new_password}`,
+which the rewritten backend no longer accepts at all, and
+`pages/Tenants.tsx` was still collecting a plaintext owner password
+that the backend now silently ignores. Both are real breaks, not
+theoretical ones — confirmed by running the *actual* `npm run build`
+(not just a type-check) before and after. Fixed to match: `api.ts`,
+`AuthContext.tsx` (same `setSession` extraction as mobile),
+`ForgotPassword.tsx`, `ResetPassword.tsx` (OTP entry, no more
+`useSearchParams` token reading), a new `ActivateAccount.tsx` page,
+`Login.tsx` (added the activation link), `Tenants.tsx` (dropped the
+owner-password field), and `App.tsx` (new route). Verified with a full
+build (`tsc -b && vite build`, the exact command CI runs) and
+`npm run lint` — zero new errors on either; the 33 lint problems that
+remain are pre-existing and unrelated (confirmed by running the same
+lint against the original, untouched upload). This is a separate
+repo (`QMfg-Frontend`), not part of this one.
 
 **What to check once there's a real Brevo account and a real
 database:** the whole activation loop end to end — Tenants creates a
@@ -499,11 +628,14 @@ onto this one.
   ReportTable: the web version triggers a browser Blob-download; RN
   has no equivalent, so `api.downloadGstr1()` now returns the parsed
   JSON payload instead of triggering a DOM download, and the screen
-  writes it to `FileSystem.cacheDirectory` and opens the native share
-  sheet via `expo-sharing`. Two new dependencies were added to
-  `package.json` for this: `expo-file-system` and `expo-sharing`
-  (both at the SDK 52-compatible versions already used elsewhere in
-  this project).
+  writes it to a cache file via `expo-file-system`'s `File`/`Paths`
+  API and opens the native share sheet via `expo-sharing`. (Originally
+  written against `expo-file-system`'s old `FileSystem.cacheDirectory`
+  string-path API — rewritten for the class-based `File`/`Directory`/
+  `Paths` API during the Expo SDK 52→57 upgrade; see "Expo SDK 52→57
+  upgrade" below for why that changed and what else did.) Two new
+  dependencies were added to `package.json` for this: `expo-file-system`
+  and `expo-sharing`.
 - **`PnlScreen.tsx`** — ports `pages/Pnl.tsx`: month/YTD/custom period
   modes (with the month/year arrow-navigators the web version has),
   headline tiles (revenue/cost/gross/net profit with margin %), a cost
@@ -915,13 +1047,41 @@ here can substitute for:
   run outside a TypeScript compiler yet. The config is fully ready now
   — real project ID, build profiles, remote version tracking, a
   GitHub Actions trigger — but "ready" and "run" are still different
-  things. Trigger a `preview` build (see "Setup" above) and install
-  the result on a phone.
+  things. Now doubly true after the SDK 52→57 jump: trigger a
+  `preview` build (see "Setup" above) and install the result on a
+  phone. This build is also the one that finally exercises
+  `compileSdkVersion`/`targetSdkVersion` 36 for real — nothing before
+  this point could confirm Google Play will actually accept it.
+- **`react-native-reanimated` v4 on a real device specifically.** Flagged
+  in "Expo SDK 52→57 upgrade" above: v4 requires the New Architecture,
+  which shouldn't be a new problem (Expo's rollout predates this
+  project), but a type-check can't confirm the drawer's animations —
+  the one thing in this app that actually depends on reanimated,
+  transitively through `@react-navigation/drawer` — still feel right
+  at runtime.
+- **`npx expo-doctor`, fully run — and this is the strongest signal
+  in this whole verification pass.** 19 of 21 checks passed, including
+  the two that matter most: *"Check that packages match versions
+  required by installed Expo SDK"* (independent confirmation that the
+  manual `bundledNativeModules.json` pinning was correct) and *"Check
+  if the project meets version requirements for submission to app
+  stores"* (the actual Play Store compliance check — this is the one
+  that started this whole upgrade). Only the 2 checks needing
+  `api.expo.dev` network access failed, both with the exact
+  "Host not i[dentified]" error predicted — a sandbox restriction, not
+  a project problem. `npx expo install --fix` still couldn't run at
+  all (same network wall, but that command has no fallback path the
+  way `expo-doctor` does), so it's still worth one confirmatory
+  `expo-doctor` + `expo install --fix` run somewhere with normal
+  network access before the first real build.
 - **The GSTR-1 share-sheet flow specifically** — `expo-sharing`'s
   behavior can differ between Expo Go, a simulator, and a real device;
   this is the one Phase 3 feature that reaches outside pure UI code
   (writing a file, invoking the OS share sheet) and is worth
-  deliberately testing first.
+  deliberately testing first. Now also running through the rewritten
+  `expo-file-system` `File`/`Paths` API rather than the old
+  `cacheDirectory` string-path calls — another reason to check this
+  one specifically rather than assume it carried over cleanly.
 - **RoleGate, in practice** — log in as a non-owner/non-superadmin
   role and confirm both halves: the drawer hides restricted items
   (already worked before this change) *and* an attempt to reach one
