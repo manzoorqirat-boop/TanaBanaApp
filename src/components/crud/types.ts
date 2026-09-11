@@ -1,6 +1,6 @@
 import type { SelectOption } from '../ui/Select';
 
-export type FieldType = 'text' | 'number' | 'select' | 'switch' | 'textarea';
+export type FieldType = 'text' | 'number' | 'select' | 'switch' | 'textarea' | 'date';
 
 export interface FieldConfig<TInput> {
   key: keyof TInput & string;
