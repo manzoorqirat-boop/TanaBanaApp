@@ -3,29 +3,28 @@ import type { ExpoConfig } from 'expo/config';
 /**
  * TanaBana mobile app config. (App display name changed from "QMfg" —
  * see the README's "Renamed to TanaBana" note for what did and didn't
- * change, and what to double check: `slug` and `android.package`
- * below are safe to change now only because nothing has shipped to
- * the Play Store or been built through EAS with the old identifiers
- * yet — if either already happened, keep the old values instead of
- * these.)
+ * change.)
  *
  * API URL resolution order (matches the QMfg-Frontend convention of
  * "never hardcode prod URLs in source"):
- *   1. EXPO_PUBLIC_API_URL env var at build time (set this in EAS
- *      secrets / eas.json per profile — preview vs production)
- *   2. Fallback to localhost, which only works in an emulator + local
- *      backend, never on a real device.
+ *   1. EXPO_PUBLIC_API_URL env var at build time (set per-profile in
+ *      eas.json — both preview and production point at the real
+ *      backend, qmfgbackend.qmsofts.com)
+ *   2. Fallback to the Android-emulator-to-host alias, which only
+ *      works in an emulator + local backend, never on a real device.
  *
- * `extra.eas.projectId` below is a placeholder — this is the one
- * value in this whole config that can't be guessed or invented, it's
- * tied to *your* Expo account. See the README's "Setup" section for
- * the exact one-time command that fills it in for real
- * (`eas init`, run once from a machine with `npx` — Codespaces is
- * fine). Every `eas build` invocation fails until this is a real ID.
+ * `slug`, `owner`, and `extra.eas.projectId` are now real — this
+ * project is linked to the tanabanas-team Expo account (confirmed via
+ * `eas init` / the Expo dashboard). `android.package` is still safe to
+ * change *only* if nothing has been built through EAS or shipped to
+ * the Play Store with the current value yet — check before touching
+ * it, since unlike the three fields above, it doesn't have a "re-link"
+ * escape hatch once something's actually been published under it.
  */
 const config: ExpoConfig = {
   name: 'TanaBana',
-  slug: 'tanabana-mobile',
+  slug: 'tanabana',
+  owner: 'tanabanas-team',
   version: '0.1.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -45,7 +44,7 @@ const config: ExpoConfig = {
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000',
     eas: {
-      projectId: 'YOUR_EAS_PROJECT_ID',
+      projectId: '465d90c9-1894-4184-94b1-b11cea9a85ba',
     },
   },
   plugins: ['expo-secure-store'],
