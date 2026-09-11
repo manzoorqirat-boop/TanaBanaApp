@@ -27,7 +27,7 @@ import { secureStorage, prefsStorage } from './storage';
 
 const BASE_URL = (
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
-  'http://10.0.2.2:4001'
+  'http://10.0.2.2:3000'
 ).replace(/\/$/, '');
 
 // ─── Token storage ──────────────────────────────────────────────────
