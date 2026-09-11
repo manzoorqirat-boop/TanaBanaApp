@@ -4,12 +4,20 @@ import { api, type FinishedProduct, type FinishedProductInput } from '../../lib/
 import type { FieldConfig } from '../../components/crud/types';
 
 export default function FinishedProductsScreen() {
+  // See RawMaterialsScreen.tsx for why this filters client-side on
+  // is_active !== false instead of passing is_active: 'true' to the API.
   const [unitOptions, setUnitOptions] = useState<{ label: string; value: string }[]>([]);
 
   useEffect(() => {
     api
-      .listUnits({ is_active: 'true', limit: 200 })
-      .then(({ units }) => setUnitOptions(units.map((u) => ({ label: `${u.name} (${u.code})`, value: u.code }))))
+      .listUnits({ limit: 200 })
+      .then(({ units }) =>
+        setUnitOptions(
+          units
+            .filter((u) => u.is_active !== false)
+            .map((u) => ({ label: `${u.name} (${u.code})`, value: u.code })),
+        ),
+      )
       .catch(() => {});
   }, []);
 
