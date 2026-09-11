@@ -7,12 +7,24 @@ export default function RawMaterialsScreen() {
   // Unit is a free-text code on the model, but in practice it should
   // always be one of your configured Units — populate the select from
   // the live Units list rather than hardcoding options.
+  //
+  // Fetch unfiltered (like UnitsScreen does) and filter client-side on
+  // is_active !== false rather than passing is_active: 'true' to the
+  // API — a unit whose is_active came back null/undefined (not
+  // explicitly false) still shows as "active" on the Units list, so it
+  // should still show up here instead of silently disappearing.
   const [unitOptions, setUnitOptions] = useState<{ label: string; value: string }[]>([]);
 
   useEffect(() => {
     api
-      .listUnits({ is_active: 'true', limit: 200 })
-      .then(({ units }) => setUnitOptions(units.map((u) => ({ label: `${u.name} (${u.code})`, value: u.code }))))
+      .listUnits({ limit: 200 })
+      .then(({ units }) =>
+        setUnitOptions(
+          units
+            .filter((u) => u.is_active !== false)
+            .map((u) => ({ label: `${u.name} (${u.code})`, value: u.code })),
+        ),
+      )
       .catch(() => {});
   }, []);
 
