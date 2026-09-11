@@ -12,21 +12,26 @@ import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
 /**
  * Ports pages/ResetPassword.tsx. The web version reads `?token=` from
- * the URL query string (the emailed reset link opens the SPA
- * directly). On mobile the same link needs to be a deep link
- * (tanabana://reset-password?token=...) configured in navigation/linking.ts
- * — React Navigation then hands the token in here as a route param
- * instead of a query string.
+ * the URL (the emailed reset link opens the SPA directly). The
+ * backend no longer generates that kind of link at all — forgot-
+ * password now e-mails a 6-digit code via Brevo, so this screen has
+ * the person type the code in directly instead of following a link.
+ * That sidesteps deep-linking entirely for this flow: no universal-
+ * link / App Links setup needed, which linking.ts used to flag as an
+ * unverified dependency for password reset specifically.
  */
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const route = useRoute<RouteProp<AuthStackParamList, 'ResetPassword'>>();
-  const token = route.params?.token || '';
 
+  const [email, setEmail] = useState(route.params?.email || '');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -37,22 +42,35 @@ export default function ResetPasswordScreen() {
 
   async function onSubmit() {
     setError('');
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match.');
-      return;
-    }
+    setNotice('');
+    if (!email.trim()) return setError('Enter your email address.');
+    if (!/^\d{6}$/.test(otp.trim())) return setError('Enter the 6-digit code from your email.');
+    if (password.length < 8) return setError('Password must be at least 8 characters.');
+    if (password !== confirm) return setError('Passwords do not match.');
+
     setBusy(true);
     try {
-      await api.resetPassword(token, password);
+      await api.resetPassword(email.trim(), otp.trim(), password);
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reset failed');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onResend() {
+    setError('');
+    setNotice('');
+    if (!email.trim()) return setError('Enter your email address first.');
+    setResending(true);
+    try {
+      await api.resendOtp(email.trim(), 'password_reset');
+      setNotice('A new code is on its way.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend code');
+    } finally {
+      setResending(false);
     }
   }
 
@@ -67,14 +85,9 @@ export default function ResetPasswordScreen() {
 
       <View style={styles.card}>
         <Text style={styles.title}>Reset password</Text>
-        <Text style={styles.subtitle}>Set a new password for your account</Text>
+        <Text style={styles.subtitle}>Enter the code we emailed you and set a new password</Text>
 
-        {!token ? (
-          <>
-            <ErrorBanner message="This reset link is missing its token. Please request a new one." />
-            <Button label="Request a new link" variant="ghost" onPress={() => navigation.navigate('ForgotPassword')} fullWidth />
-          </>
-        ) : done ? (
+        {done ? (
           <View style={styles.successBox}>
             <CheckCircle2 size={18} color={colors.success700} />
             <Text style={styles.successText}>Password updated. Redirecting you to sign in…</Text>
@@ -82,6 +95,28 @@ export default function ResetPasswordScreen() {
         ) : (
           <>
             {error ? <ErrorBanner message={error} /> : null}
+            {notice ? (
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeText}>{notice}</Text>
+              </View>
+            ) : null}
+
+            <TextField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+            <TextField
+              label="6-digit code"
+              value={otp}
+              onChangeText={(t) => setOtp(t.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholder="000000"
+            />
             <TextField
               label="New password"
               value={password}
@@ -97,13 +132,22 @@ export default function ResetPasswordScreen() {
               secureTextEntry
               autoComplete="new-password"
             />
+
             <Button
               label={busy ? 'Updating…' : 'Update password'}
               onPress={onSubmit}
               loading={busy}
               fullWidth
             />
-            <View style={{ height: spacing[3] }} />
+            <View style={{ height: spacing[2] }} />
+            <Button
+              label={resending ? 'Resending…' : "Didn't get a code? Resend"}
+              variant="ghost"
+              size="sm"
+              onPress={onResend}
+              loading={resending}
+            />
+            <View style={{ height: spacing[2] }} />
             <Button label="Back to sign in" variant="ghost" onPress={() => navigation.navigate('Login')} fullWidth />
           </>
         )}
@@ -139,4 +183,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   successText: { flex: 1, fontSize: fontSize.sm, color: colors.success700 },
+  noticeBox: {
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.sm,
+    padding: spacing[3],
+    marginBottom: spacing[3],
+  },
+  noticeText: { fontSize: fontSize.sm, color: colors.accentStrong },
 });
