@@ -15,6 +15,7 @@ import {
 import { Plus, X, Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ListRow } from '../ui/ListRow';
 import { TextField } from '../ui/TextField';
 import { Button } from '../ui/Button';
@@ -93,6 +94,7 @@ export function MasterCrudScreen<TItem extends BaseItem, TInput>({
   updateFn = readOnly ? undefined : updateFn;
   deactivateFn = readOnly ? undefined : deactivateFn;
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<TItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -190,7 +192,7 @@ export function MasterCrudScreen<TItem extends BaseItem, TInput>({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing[4] }]}>
         <Pressable onPress={() => navigation.openDrawer()} hitSlop={12}>
           <Menu size={22} color={colors.textStrong} />
         </Pressable>
@@ -254,13 +256,15 @@ export function MasterCrudScreen<TItem extends BaseItem, TInput>({
           style={styles.modalScreen}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + spacing[4] }]}>
             <Text style={styles.modalTitle}>{editingItem ? `Edit ${title}` : `New ${title}`}</Text>
             <Pressable onPress={() => setModalOpen(false)} hitSlop={12}>
               <X size={22} color={colors.textStrong} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <ScrollView
+            contentContainerStyle={[styles.modalContent, { paddingBottom: insets.bottom + spacing[4] }]}
+          >
             {formError ? <ErrorBanner message={formError} /> : null}
             <FieldForm
               fields={fields}
