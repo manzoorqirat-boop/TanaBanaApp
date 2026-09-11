@@ -15,10 +15,16 @@ second built out Job Work's entire "Activity" tab (dispatch/receive/
 balances/payables/account drill-down), previously just a master list;
 the third corrected an overstated i18n-gap claim from the first round
 (see "i18n coverage" below — it was 2 screens, not ~30) and added
-Urdu, which the web app doesn't have at all. The whole project
-type-checks with zero errors and zero unused locals/params
-(`npx tsc --noEmit` and `--noUnusedLocals --noUnusedParameters` both
-exit clean).
+Urdu, which the web app doesn't have at all. On top of all that,
+**Brevo OTP email** — real transactional email (not a stub), and two
+auth flows rebuilt around it: forgot-password moved from a clickable
+link to a 6-digit code, and a brand-new first-login activation flow
+for superadmin-created accounts, which previously had their password
+set in plaintext by whoever created them. Neither is a web-app port —
+see "Brevo OTP" below for the full picture, including a spec-reading
+assumption worth double-checking. The whole project type-checks with
+zero errors and zero unused locals/params (`npx tsc --noEmit` and
+`--noUnusedLocals --noUnusedParameters` both exit clean).
 
 ## What's here
 
@@ -84,7 +90,9 @@ src/
       FieldForm.tsx              renders a form from a FieldConfig[]
       types.ts                   FieldConfig type
   screens/
-    auth/                      Login, ForgotPassword, ResetPassword
+    auth/                      Login, ForgotPassword, ResetPassword,
+                                 ActivateAccount (new — first-login OTP,
+                                 see "Brevo OTP" below)
     app/
       DashboardScreen.tsx      Audit-pass rebuild — real KPIs (today's
                                  stats, month P&L glance, cost composition,
@@ -133,6 +141,113 @@ src/
                                  policy + FG restock thresholds; was
                                  entirely missing, API layer already existed
 ```
+
+## Brevo OTP: first-login activation + password reset
+
+Two different things, worth keeping separate in your head — same as
+the Urdu split above (translations vs. RTL layout).
+
+**What changed and why.** Two real problems existed before this pass:
+`utils/mailer.js` had a SendGrid stub that was never actually wired up
+(no API key, no SDK installed — every "email" was just a console log),
+and the Tenants "create a new company" flow had the **superadmin type
+the new owner's password directly into a form field** — meaning the
+person provisioning an account knew that account's real password
+until the owner got around to changing it. Neither is a web-app gap;
+the web app has the exact same two problems (same stub mailer, same
+plaintext-password Tenants flow) — this is new work on both sides, not
+a port.
+
+**The assumption this rests on.** "First-login" reasonably could have
+meant a few different things, so here's exactly what was checked
+before building anything: the web app has **no signup UI anywhere** —
+`POST /api/auth/signup` exists on the backend but no page calls it,
+confirmed by grepping every page for "signup" (zero matches). The only
+real "an account gets created with credentials" flow with actual UI in
+both web and mobile is Tenants → superadmin creates a company + owner.
+That's what got rebuilt. If a public self-service signup screen (with
+OTP e-mail verification) was actually the intent instead, that's a
+different, not-yet-started piece of work — flag it and it's
+straightforward to add once the OTP plumbing below already exists.
+
+**Backend** (a separate repo — `QMfg-main`, not this one; noted here
+for context since the mobile app's contract depends on it):
+- `utils/mailer.js` — real Brevo support via a plain `fetch` call to
+  `https://api.brevo.com/v3/smtp/email` (Node ≥20 has fetch built in,
+  no new dependency). Set `MAIL_PROVIDER=brevo`, `BREVO_API_KEY`,
+  `MAIL_FROM_EMAIL` and it sends for real; unset, it still logs to the
+  console like before — the app never fails to boot over missing mail
+  config.
+- `db/schema.sql` — new `otp_codes` table (`purpose`: `first_login` |
+  `password_reset`, plus an `attempts` column — a 6-digit code is only
+  1,000,000 possibilities, much weaker than the 32-byte hex token the
+  old link-based reset used, so `verify-otp` locks a code out after 5
+  wrong guesses rather than relying on expiry alone). New
+  `users.must_set_password` column flags accounts pending activation.
+  The old `password_resets` table is kept, not dropped, in case a
+  reset link sent right before this shipped is still mid-flight in
+  someone's inbox.
+- `routes/auth.js` — `forgot-password` and `reset-password` rewritten
+  to use OTP codes instead of a link token. Two new endpoints:
+  `verify-first-login` (checks a `first_login` OTP, sets the owner's
+  real password, auto-logs in — same response shape as `/login`) and
+  `resend-otp` (works for either purpose, same enumeration-safe
+  generic-response pattern as forgot-password).
+- `routes/companies.js` — the owner-creation endpoint no longer
+  accepts (or uses, if an old client still sends it) a plaintext
+  password. It generates a random, never-revealed placeholder,
+  hashes that, sets `must_set_password = true`, and e-mails a
+  first-login OTP automatically after the company+owner transaction
+  commits (mail failure doesn't roll back an otherwise-successful
+  creation — the superadmin can always trigger a resend).
+- Verified: `node --check` on all four changed files, plus a full
+  `require()` resolution test with dummy env vars (no live DB in this
+  environment) confirming every import actually resolves — no missing
+  exports, no typos. Not integration-tested against a real database or
+  a real Brevo account, since neither exists here.
+
+**Mobile** (this repo):
+- `lib/api.ts` — `resetPassword()` changed from `(token, newPassword)`
+  to `(email, otp, newPassword)`; added `verifyFirstLogin()` and
+  `resendOtp()`; removed the now-unused `password` field from
+  `CreateCompanyInput.owner`.
+- `context/AuthContext.tsx` — extracted a `setSession()` helper from
+  `login()` so `ActivateAccountScreen` can establish a real session
+  after OTP verification the same way a normal login does, without
+  duplicating the token-storage logic.
+- `ForgotPasswordScreen.tsx` — now requests a code and hands off to
+  `ResetPasswordScreen` with the email pre-filled, instead of showing
+  a terminal "check your email" message.
+- `ResetPasswordScreen.tsx` — full rewrite: email + 6-digit code + new
+  password + confirm, a resend-code button, no more reading a `token`
+  route param from a deep link. This incidentally simplifies
+  `linking.ts` — the reset flow doesn't need deep linking at all
+  anymore, which sidesteps the Android App Links / universal-link
+  setup that file used to flag as a real, unverified dependency.
+- `ActivateAccountScreen.tsx` — new. Reached from a "First time here?
+  Activate your account" link on Login. Same shape as
+  ResetPasswordScreen (email + code + password + confirm + resend),
+  but on success it calls `setSession()` and auto-logs the new owner
+  in, matching how signup behaves on the web.
+- `TenantsScreen.tsx` — the create-tenant form's "Owner password"
+  field is gone, replaced with a line explaining the owner gets an
+  activation code by email instead.
+- `linking.ts` — comment rewritten to reflect that it's now mostly
+  dormant scaffolding for the reset flow specifically (kept in place
+  in case a real deep-link need comes up later), not describing an
+  active dependency.
+- Verified: `npx tsc --noEmit` and `--noUnusedLocals
+  --noUnusedParameters` both clean across the whole project after
+  these changes, same as every other pass in this README.
+
+**What to check once there's a real Brevo account and a real
+database:** the whole activation loop end to end — Tenants creates a
+company, the owner receives an actual email (not a console log),
+enters the code, sets a password, lands on Dashboard already logged
+in. Same for forgot-password. Also worth trying: requesting a code,
+waiting past `OTP_TTL_MINUTES` (10), confirming it's rejected as
+expired; and guessing wrong 5 times, confirming the lockout message
+appears on attempt 6 rather than continuing to accept guesses.
 
 ## Audit pass — a full diff against the web app
 
@@ -818,3 +933,10 @@ here can substitute for:
   layout is only automatic-mirroring-plus-hope until someone actually
   looks at a screen in Urdu on a phone. See "Urdu / RTL support"
   above for exactly what's unverified.
+- **The whole Brevo OTP loop, against a real database and a real
+  Brevo account.** Verified so far: backend syntax, module resolution,
+  and mobile type-checking — none of which touches an actual database
+  or actually sends an email. See "Brevo OTP" above for the specific
+  end-to-end checks worth running (expiry, the 5-attempt lockout,
+  activation → auto-login, forgot-password → sign-in) once
+  `BREVO_API_KEY` and a database are both real.
