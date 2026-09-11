@@ -25,7 +25,8 @@ exit clean).
 ```
 App.tsx                        entry point: i18n boot, providers, nav
 app.config.ts                  Expo config; API URL via EXPO_PUBLIC_API_URL;
-                                extra.eas.projectId filled in by `eas init`
+                                slug/owner/projectId linked to the real
+                                Expo project (tanabanas-team account)
 eas.json                       EAS build profiles (preview/production),
                                 remote versionCode tracking, submit config
 .easignore                     keeps build uploads to just what's needed
@@ -608,34 +609,30 @@ to a GitHub repo, then run builds through **EAS's cloud build service**
 for the one-time setup, then either the Expo website or the included
 GitHub Actions workflow for every build after that.
 
-**One-time setup:**
+**One-time setup — done:** this project is linked to the Expo account
+already. `app.config.ts` has the real values:
+- `slug: 'tanabana'`
+- `owner: 'tanabanas-team'`
+- `extra.eas.projectId: '465d90c9-1894-4184-94b1-b11cea9a85ba'`
 
-1. Create an Expo account: https://expo.dev
-2. From Codespaces (or any machine with `npx`), log in and link the
-   project — this is the step that turns `app.config.ts`'s
-   `extra.eas.projectId: 'YOUR_EAS_PROJECT_ID'` placeholder into a
-   real ID, which every `eas build` call needs to work:
-   ```
-   npx eas-cli login
-   npx eas-cli init
-   ```
-   `eas init` edits `app.config.ts` for you — commit that change.
-3. `eas.json` already points both `preview` and `production` at the
-   real backend — `https://qmfgbackend.qmsofts.com` — so this step is
-   only needed if you want a *separate* staging backend later. If/when
-   you do, set the API URL as a secret per environment (Expo dashboard
-   → your project → Environment variables) and update the
-   `EXPO_PUBLIC_API_URL` values in `eas.json` accordingly.
-4. *(Optional, for triggering builds from GitHub instead of a shell)*
+What's left of one-time setup:
+
+1. `eas.json` already points both `preview` and `production` at the
+   real backend — `https://qmfgbackend.qmsofts.com` — so no action
+   needed here unless you want a *separate* staging backend later.
+2. *(Optional, for triggering builds from GitHub instead of a shell)*
    Generate a token — expo.dev → account settings → Access Tokens —
    and add it as a repo secret named `EXPO_TOKEN` (GitHub repo →
    Settings → Secrets and variables → Actions). This is what
-   `.github/workflows/eas-build.yml` uses.
+   `.github/workflows/eas-build.yml` uses. Make sure whoever generates
+   this token has access to the `tanabanas-team` account, not just a
+   personal Expo account — a token from the wrong account will fail
+   to find this project.
 
-**Every build after that**, pick one:
+**Every build**, pick one:
 - **From GitHub**: Actions tab → "EAS Build" → Run workflow → choose
-  `preview` or `production`. No shell needed at all once the one-time
-  setup above is done.
+  `preview` or `production`. No shell needed at all (once the
+  `EXPO_TOKEN` secret above is set).
 - **From a shell** (Codespaces or otherwise):
   ```
   npx eas-cli build --platform android --profile preview
@@ -800,11 +797,11 @@ is built. What remains is exactly what no amount of code review from
 here can substitute for:
 
 - **An actual EAS build on a real device.** Nothing in this repo has
-  run outside a TypeScript compiler yet. The config is ready — project
-  ID placeholder, build profiles, remote version tracking, a GitHub
-  Actions trigger — but "ready" and "run" are different things. Do the
-  one-time `eas init` (see "Setup" above), then trigger a `preview`
-  build and install the result on a phone.
+  run outside a TypeScript compiler yet. The config is fully ready now
+  — real project ID, build profiles, remote version tracking, a
+  GitHub Actions trigger — but "ready" and "run" are still different
+  things. Trigger a `preview` build (see "Setup" above) and install
+  the result on a phone.
 - **The GSTR-1 share-sheet flow specifically** — `expo-sharing`'s
   behavior can differ between Expo Go, a simulator, and a real device;
   this is the one Phase 3 feature that reaches outside pure UI code
