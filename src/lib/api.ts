@@ -262,7 +262,10 @@ export interface CreateCompanyInput {
   owner: {
     name: string;
     email: string;
-    password: string;
+    // No password field — the backend generates a random, never-
+    // revealed placeholder and e-mails the new owner a first-login
+    // OTP (see api.verifyFirstLogin) instead. Nobody types or sees
+    // this owner's password except the owner themself, on activation.
     phone?: string;
   };
 }
@@ -1210,10 +1213,30 @@ export const api = {
       body: JSON.stringify({ email }),
     });
   },
-  resetPassword(token: string, newPassword: string) {
+  // Ports the OTP-based reset flow — was token-based (a link tapped
+  // from an email), now a 6-digit code typed directly into the app.
+  // No deep link needed at all, which sidesteps the whole universal-
+  // link/App Links setup linking.ts used to flag as unverified.
+  resetPassword(email: string, otp: string, newPassword: string) {
     return request<{ message: string }>('/api/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, new_password: newPassword }),
+      body: JSON.stringify({ email, otp, new_password: newPassword }),
+    });
+  },
+  // For accounts a superadmin created (Tenants → new company/owner):
+  // the owner no longer gets a password set for them — they verify a
+  // first-login OTP and choose their own. Auto-logs in on success,
+  // same shape as login()/signup.
+  verifyFirstLogin(email: string, otp: string, newPassword: string) {
+    return request<LoginResponse>('/api/auth/verify-first-login', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, new_password: newPassword }),
+    });
+  },
+  resendOtp(email: string, purpose: 'first_login' | 'password_reset') {
+    return request<{ message: string }>('/api/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, purpose }),
     });
   },
 
