@@ -32,7 +32,7 @@ const config: ExpoConfig = {
   owner: 'tanabanas-team',
   version: '0.1.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './icon.png',
   userInterfaceStyle: 'light',
   android: {
     package: 'com.qmsofts.tanabana',
