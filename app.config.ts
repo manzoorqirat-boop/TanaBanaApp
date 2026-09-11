@@ -43,7 +43,7 @@ const config: ExpoConfig = {
     },
   },
   extra: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:4001',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000',
     eas: {
       projectId: 'YOUR_EAS_PROJECT_ID',
     },
