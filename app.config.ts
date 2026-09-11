@@ -37,7 +37,7 @@ const config: ExpoConfig = {
   android: {
     package: 'com.qmsofts.tanabana',
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './adaptive-icon.png',
       backgroundColor: '#1d4ed8',
     },
   },
