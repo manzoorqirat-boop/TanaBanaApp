@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronDown, ChevronRight, LogOut, Factory, type LucideIcon } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { NAV, isGroup, type NavEntry } from './navConfig';
@@ -16,6 +17,7 @@ import { colors, spacing, radius, fontSize } from '../theme/tokens';
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { user, logout } = useAuth();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const insets = useSafeAreaInsets();
 
   function canSee(entry: NavEntry): boolean {
     if (!entry.roles) return true;
@@ -74,7 +76,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         })}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[4] }]}>
         {user ? (
           <Text style={styles.userLine} numberOfLines={1}>
             {user.name} · {user.role}
