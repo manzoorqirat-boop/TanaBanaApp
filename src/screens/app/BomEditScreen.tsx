@@ -29,12 +29,12 @@ import { colors, spacing, fontSize, radius } from '../../theme/tokens';
 
 interface DraftLine {
   rm_id: string;
-  quantity_per_unit_fg: number;
+  quantity_per_unit_fg: number | string;
   notes: string;
 }
 interface DraftOverhead {
   overhead_id: string;
-  amount_per_unit: number;
+  amount_per_unit: number | string;
   notes: string;
 }
 
@@ -162,7 +162,7 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
   function setLineRm(i: number, rmId: string) {
     setLines((l) => l.map((line, idx) => (idx === i ? { ...line, rm_id: rmId } : line)));
   }
-  function setLineQty(i: number, qty: number) {
+  function setLineQty(i: number, qty: string) {
     setLines((l) => l.map((line, idx) => (idx === i ? { ...line, quantity_per_unit_fg: qty } : line)));
   }
 
@@ -188,7 +188,7 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
       ),
     );
   }
-  function setOverheadAmount(i: number, amount: number) {
+  function setOverheadAmount(i: number, amount: string) {
     setOverheadLines((l) => l.map((line, idx) => (idx === i ? { ...line, amount_per_unit: amount } : line)));
   }
 
@@ -196,7 +196,7 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
     setErr('');
     if (!fgId) return setErr('Pick a finished product');
     if (lines.length === 0) return setErr('Add at least one raw material line');
-    if (lines.some((l) => !l.quantity_per_unit_fg || l.quantity_per_unit_fg <= 0)) {
+    if (lines.some((l) => !(Number(l.quantity_per_unit_fg) > 0))) {
       return setErr('All line quantities must be > 0');
     }
     const rmIds = lines.map((l) => String(l.rm_id));
@@ -297,7 +297,7 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
                   lines.map((line, i) => {
                     const rm = rms.find((r) => String(r.id) === String(line.rm_id));
                     const rate = rm?.last_purchase_rate ? Number(rm.last_purchase_rate) : 0;
-                    const lineCost = (line.quantity_per_unit_fg || 0) * rate;
+                    const lineCost = (Number(line.quantity_per_unit_fg) || 0) * rate;
                     return (
                       <View key={i} style={styles.lineRow}>
                         <View style={styles.lineRowHeader}>
@@ -315,10 +315,10 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
                         </View>
                         <TextField
                           label=""
-                          value={line.quantity_per_unit_fg ? String(line.quantity_per_unit_fg) : ''}
-                          onChangeText={(v) => setLineQty(i, Number(v) || 0)}
+                          value={line.quantity_per_unit_fg === 0 ? '' : String(line.quantity_per_unit_fg)}
+                          onChangeText={(v) => setLineQty(i, v)}
                           placeholder={`qty per unit ${selectedFg?.unit ?? ''}`}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                         />
                         {rm ? (
                           <Text style={styles.lineMeta}>
@@ -369,10 +369,10 @@ export default function BomEditScreen({ initialFgId, onClose, onSaved }: BomEdit
                         </View>
                         <TextField
                           label=""
-                          value={oLine.amount_per_unit ? String(oLine.amount_per_unit) : ''}
-                          onChangeText={(v) => setOverheadAmount(i, Number(v) || 0)}
+                          value={oLine.amount_per_unit === 0 ? '' : String(oLine.amount_per_unit)}
+                          onChangeText={(v) => setOverheadAmount(i, v)}
                           placeholder="₹ per unit"
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                         />
                         {oh ? (
                           <Text style={[styles.lineMeta, isCustom && { color: colors.warning700 }]}>
